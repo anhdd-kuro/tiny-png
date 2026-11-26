@@ -1,0 +1,21 @@
+{
+  "name": "tiny-png-desktop",
+  "productName": "Tiny PNG",
+  "version": "0.1.0",
+  "description": "Offline image compression with a floating drop zone and screenshot folder watching",
+  "main": "src/main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "build": "node scripts/build-app.cjs"
+  },
+  "dependencies": {
+    "chokidar": "6.0.0",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.5.0"
+  }
+}

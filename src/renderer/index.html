@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'">
+  <title>Tiny PNG</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="titlebar">
+    <span class="window-title">Tiny PNG</span>
+    <div class="title-actions">
+      <button id="watch-status" class="watch-status" type="button" hidden></button>
+      <button id="settings-open" class="icon-button" type="button" aria-label="Cài đặt" title="Cài đặt">⚙</button>
+    </div>
+  </header>
+  <main class="workspace">
+    <section class="brand" aria-label="Tiny PNG">
+      <span class="panda" aria-hidden="true">🐼</span>
+      <h1>Tiny PNG</h1>
+    </section>
+    <button id="drop-zone" class="drop-zone" type="button" aria-label="Chọn hoặc thả ảnh và thư mục để nén">
+      <svg class="drop-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 5v24m-8-8 8 8 8-8M9 28v10a4 4 0 0 0 4 4h22a4 4 0 0 0 4-4V28" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="drop-label" class="drop-title">Kéo ảnh vào đây</span>
+      <span class="formats">PNG · JPG · WebP · AVIF</span>
+      <span class="choose-pill">Chọn ảnh…</span>
+    </button>
+    <section id="queue-section" class="queue-section" aria-labelledby="queue-heading" hidden>
+      <div class="queue-heading">
+        <h2 id="queue-heading">Ảnh của bạn <span id="job-count" class="count">0</span></h2>
+        <div class="queue-actions">
+          <button id="retry-all" class="text-button" type="button" hidden>Thử lại lỗi</button>
+          <button id="clear-finished" class="text-button" type="button">Dọn danh sách</button>
+        </div>
+      </div>
+      <ul id="job-list" class="job-list" aria-label="Danh sách ảnh"></ul>
+    </section>
+  </main>
+  <div id="notice" class="notice" role="alert" hidden><span id="notice-text"></span><button id="notice-close" class="icon-button" type="button" aria-label="Đóng thông báo">×</button></div>
+  <footer class="footer">
+    <div class="summary"><strong id="summary-primary">Sẵn sàng nén ảnh</strong><span id="summary-secondary">Xử lý trên máy của bạn</span></div>
+    <button id="queue-control" class="primary-button" type="button">Thêm ảnh</button>
+  </footer>
+  <div id="live-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-heading"><h2 id="settings-title">Cài đặt</h2><button id="settings-close" class="close-button" type="button" aria-label="Đóng cài đặt">×</button></div>
+    <div class="settings-scroll">
+      <section class="settings-section">
+        <h3>Vùng thả nổi</h3>
+        <label class="switch-row"><span>Hiện vùng thả ở góc màn hình</span><input id="corner-enabled" type="checkbox" role="switch"></label>
+        <label class="field-row"><span>Vị trí</span><select id="drop-corner"><option value="topRight">Trên bên phải</option><option value="bottomRight">Dưới bên phải</option><option value="topLeft">Trên bên trái</option><option value="bottomLeft">Dưới bên trái</option></select></label>
+      </section>
+      <section class="settings-section">
+        <div class="section-heading"><h3>Theo dõi thư mục</h3><button id="watch-toggle" class="small-button" type="button">Bắt đầu</button></div>
+        <div class="folder-row"><span id="watch-path" class="folder-path">Chưa chọn thư mục</span><button id="choose-watch" class="small-button" type="button">Chọn…</button></div>
+        <p class="setting-note">Ảnh mới được nén tự động khi app đang chạy, kể cả khi đóng cửa sổ này.</p>
+      </section>
+      <section class="settings-section">
+        <h3>Lưu ảnh</h3>
+        <label class="switch-row"><span>Ghi đè ảnh gốc</span><input id="overwrite" type="checkbox" role="switch"></label>
+        <label class="field-row"><span>Định dạng</span><select id="format"><option value="original">Giữ định dạng</option><option value="webp">WebP</option><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
+        <div class="folder-row"><span id="output-path" class="folder-path">Cùng thư mục ảnh gốc</span><button id="choose-output" class="small-button" type="button">Chọn…</button><button id="reset-output" class="small-button" type="button" hidden>Đặt lại</button></div>
+        <label class="quality-label" for="quality">Chất lượng <output id="quality-value">80</output></label>
+        <input id="quality" class="quality-range" type="range" min="40" max="100" step="1" value="80">
+      </section>
+      <section class="settings-section">
+        <label class="switch-row section-heading"><h3>Resize ảnh</h3><input id="resize-enabled" type="checkbox" role="switch"></label>
+        <fieldset id="resize-fields" class="resize-fields">
+          <label class="field-row"><span>Phương pháp</span><select id="resize-method"><option value="fit">Fit</option><option value="cover">Cover</option><option value="scale">Scale</option><option value="thumb">Thumb</option></select></label>
+          <div class="dimension-grid"><label class="dimension">Rộng (px)<input id="width" type="number" min="1" max="32768" step="1" value="1200"></label><label id="height-field" class="dimension">Cao (px)<input id="height" type="number" min="1" max="32768" step="1" value="1200"></label></div>
+        </fieldset>
+      </section>
+    </div>
+    <div class="dialog-footer"><button id="settings-done" class="dialog-done" type="button">Xong</button></div>
+  </dialog>
+</body>
+</html>
