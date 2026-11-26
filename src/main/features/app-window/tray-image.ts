@@ -1,12 +1,10 @@
 import { nativeImage, type NativeImage } from 'electron';
+import path from 'node:path';
 
 export function createTrayImage(): NativeImage {
-  const image = nativeImage.createEmpty();
-  for (const scaleFactor of [1, 2]) {
-    const size = 18 * scaleFactor;
-    const symbol = nativeImage.createFromNamedImage('photo', { pointSize: size, weight: 'regular' });
-    image.addRepresentation({ scaleFactor, dataURL: symbol.resize({ width: size, height: size }).toDataURL() });
-  }
-  image.setTemplateImage(true);
+  const file = path.join(__dirname, '../assets/tray.png');
+  const image = nativeImage.createFromPath(file);
+  if (image.isEmpty()) throw new Error(`Missing or invalid dinosaur menu bar PNG: ${file}`);
+  image.setTemplateImage(false);
   return image;
 }

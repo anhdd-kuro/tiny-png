@@ -1,8 +1,9 @@
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as esbuild } from 'esbuild';
 import { build as viteBuild } from 'vite';
+import sharp from 'sharp';
 import { collectBundledLicenses } from './packaging/licenses';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -32,6 +33,13 @@ export async function buildSources(): Promise<void> {
     }),
     viteBuild({ configFile: path.join(root, 'vite.config.ts') }),
   ]);
+  const trayDirectory = path.join(root, 'build/assets');
+  await mkdir(trayDirectory, { recursive: true });
+  const dinosaur = await sharp(path.join(root, 'src/renderer/assets/dino.png')).trim({ threshold: 16 }).toBuffer();
+  for (const [name, size] of [['tray.png', 18], ['tray@2x.png', 36]] as const) {
+    await sharp(dinosaur).resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png()
+      .toFile(path.join(trayDirectory, name));
+  }
   await collectBundledLicenses({
     root,
     metafile: nodeBuild.metafile,

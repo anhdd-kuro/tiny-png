@@ -51,6 +51,20 @@ try {
   const state = await main.evaluate(() => window.tinyPNG.getState());
   if (state.settings.s3Enabled || state.settings.watchEnabled) throw new Error('QA profile must stay local and isolated.');
   console.log(JSON.stringify({ pid: app.process().pid, profile: await app.evaluate(({ app }) => app.getPath('userData')), version: metadata.version }));
+  const qaMetadata = JSON.parse(await fs.readFile(path.join(qaRoot, 'qa-runtime.json'), 'utf8')) as { applicationRoot: string };
+  const trayIcon = await app.evaluate(({ nativeImage }, applicationRoot) => {
+    const icon = nativeImage.createFromPath(applicationRoot + '/build/assets/tray.png');
+    return { empty: icon.isEmpty(), size: icon.getSize(), scales: icon.getScaleFactors() };
+  }, qaMetadata.applicationRoot);
+  assert.equal(trayIcon.empty, false);
+  assert.deepEqual(trayIcon.size, { width: 18, height: 18 });
+  assert.deepEqual(trayIcon.scales.sort(), [1, 2]);
+  for (const [name, size] of [['tray.png', 18], ['tray@2x.png', 36]] as const) {
+    const png = await sharp(path.join(qaMetadata.applicationRoot, 'build/assets', name)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    assert.equal(png.info.width, size); assert.equal(png.info.height, size);
+    assert.equal(png.data[3], 0);
+    assert(png.data.some((value, index) => index % 4 === 3 && value > 128));
+  }
   await capture(main, 'main-empty-vi-light');
   await main.getByRole('button', { name: state.translations['settings.heading'], exact: true }).click();
   const settings = await findWindow('/features/settings/index.html');

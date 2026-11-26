@@ -78,7 +78,7 @@ async function main(): Promise<void> {
   const resources = path.join(app, 'Contents/Resources/app');
   const development = await pruneDevelopmentFiles(path.join(resources, 'node_modules'));
   const locales = await pruneMacLocales(app);
-  for (const file of ['build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html', 'build/renderer/features/settings/index.html', 'build/licenses/manifest.json', 'build/renderer/licenses.json']) {
+  for (const file of ['build/assets/tray.png', 'build/assets/tray@2x.png', 'build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html', 'build/renderer/features/settings/index.html', 'build/licenses/manifest.json', 'build/renderer/licenses.json']) {
     await fs.access(path.join(resources, file));
   }
   const executable = path.join(app, 'Contents/MacOS', APP_NAME);
