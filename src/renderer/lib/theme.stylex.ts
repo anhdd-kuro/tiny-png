@@ -3,6 +3,7 @@ import * as stylex from '@stylexjs/stylex';
 export const theme = stylex.defineVars({
   focus: { default: '#197c59', '@media (prefers-color-scheme: dark)': '#77d6a8' },
   disabledText: { default: '#777980', '@media (prefers-color-scheme: dark)': '#92959c' },
+  disabledSelection: { default: '#ffffff', '@media (prefers-color-scheme: dark)': '#3a3a40' },
   segmentTrack: { default: '#e8e8ec', '@media (prefers-color-scheme: dark)': '#202023' },
   text: { default: '#1d1d1f', '@media (prefers-color-scheme: dark)': '#f1f1f3' },
   secondary: { default: '#60636b', '@media (prefers-color-scheme: dark)': '#b4b7bf', '@media (prefers-contrast: more)': 'CanvasText' },
