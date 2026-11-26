@@ -2,6 +2,7 @@ export type Language = 'en' | 'vi' | 'ja';
 export type DropCorner = 'topRight' | 'topLeft' | 'bottomRight' | 'bottomLeft' | 'topCenter';
 export type ResizeMethod = 'fit' | 'cover' | 'scale' | 'thumb';
 export type OutputFormat = 'original' | 'png' | 'jpeg' | 'webp' | 'avif';
+export type SettingsCategory = 'images' | 'automation' | 'general' | 'cloud';
 
 export interface CompressionOptions {
   quality: number;
@@ -68,7 +69,8 @@ export type SettingsPatch = Partial<Omit<Settings, 'watchPath' | 'watchEnabled' 
 export interface TinyPNG {
   getState(): Promise<AppState>;
   onState(callback: (state: AppState) => void): () => void;
-  onOpenSettings(callback: () => void): () => void;
+  onOpenSettings(callback: (category?: SettingsCategory) => void): () => void;
+  openSettings(category?: SettingsCategory): Promise<void>;
   chooseFiles(): Promise<void>;
   enqueueFiles(files: File[]): Promise<void>;
   chooseWatchFolder(): Promise<void>;
@@ -92,4 +94,5 @@ export const IPC = {
   updateSettings: 'update-settings', pause: 'pause', resume: 'resume', retry: 'retry', remove: 'remove', clear: 'clear',
   reveal: 'reveal', openMain: 'open-main', dismissNotice: 'dismiss-notice',
   saveS3Credentials: 'save-s3-credentials',
+  settingsReady: 'settings-ready',
 } as const;

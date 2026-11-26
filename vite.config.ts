@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         main: fileURLToPath(new URL('./src/renderer/index.html', import.meta.url)),
         corner: fileURLToPath(new URL('./src/renderer/features/corner-drop/index.html', import.meta.url)),
+        settings: fileURLToPath(new URL('./src/renderer/features/settings/index.html', import.meta.url)),
       },
     },
   },

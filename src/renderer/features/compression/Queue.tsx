@@ -37,7 +37,7 @@ export function Queue({ state, run, t }: QueueProps) {
       </div>
       <ul {...stylex.props(styles.list)} aria-label={t('queue.list')}>
         {state.jobs.map((job) => <li key={job.id} {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.fileIcon, job.state === 'failed' && styles.errorColor)}><Icon name="photo" size={20} /></span>
+          <span {...stylex.props(styles.fileIcon, job.state === 'failed' && styles.errorColor)}><Icon name="photo" size={16} /></span>
           <div {...stylex.props(styles.info)}>
             <div {...stylex.props(styles.nameLine)}><span {...stylex.props(styles.name)} title={job.source}>{job.name}</span>
               {job.result?.remoteLocation && <span {...stylex.props(styles.s3)} title={`${t('s3.uploaded')}: ${job.result.remoteLocation}`} aria-label={t('s3.uploaded')}>S3</span>}</div>
@@ -65,13 +65,13 @@ export function Queue({ state, run, t }: QueueProps) {
   </>;
 }
 
-export function QueueFooter({ state, run, t }: QueueProps) {
+export function QueueFooter({ state, run, t, glass = false }: QueueProps & { glass?: boolean }) {
   const summary = stats(state.jobs);
   const hasCompleted = summary.completed.length > 0;
   const primary = state.jobs.some((job) => job.state === 'processing' && job.phase === 'uploading') ? t('s3.uploading') : hasCompleted ? t('queue.saved', { size: bytes(summary.saved, state.settings.language) }) : state.isProcessing ? t('app.processing') : summary.failed ? t('app.errorCount', { count: summary.failed }) : t('queue.ready');
   const button = state.isProcessing ? t(state.paused ? 'queue.pausing' : 'queue.pause') : summary.pending ? t('queue.compress', { count: summary.pending }) : t('queue.add');
   if (!state.jobs.length) return null;
-  return <footer {...stylex.props(styles.footer)}>
+  return <footer {...stylex.props(styles.footer, glass && styles.glassChrome)}>
     <div {...stylex.props(styles.summary)}><strong {...stylex.props(styles.summaryTitle)}>{primary}</strong>
       {hasCompleted && <span {...stylex.props(styles.summaryMeta)}>{t('queue.completed', { count: summary.completed.length, percent: summary.original ? Math.round(summary.saved / summary.original * 100) : 0 })}</span>}</div>
     <button type="button" {...stylex.props(controls.button, styles.primary)} disabled={state.isProcessing && state.paused} onClick={() => void run(() => state.isProcessing ? window.tinyPNG.pause() : summary.pending ? window.tinyPNG.resume() : window.tinyPNG.chooseFiles())}>{button}</button>
@@ -80,19 +80,20 @@ export function QueueFooter({ state, run, t }: QueueProps) {
 
 const spin = stylex.keyframes({ to: { transform: 'rotate(360deg)' } });
 const styles = stylex.create({
-  section: { marginTop: 25 }, heading: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 9 },
+  section: { marginTop: 24, paddingTop: 8, paddingInline: 12, borderRadius: 8, backgroundColor: { default: 'rgba(12,12,12,.35)', '@media (prefers-reduced-transparency: reduce)': '#264a58' } }, heading: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
   title: { fontSize: '.8125rem', fontWeight: 600, margin: 0, color: theme.secondary }, count: { fontWeight: 400, marginLeft: 5, fontVariantNumeric: 'tabular-nums' },
-  actions: { display: 'flex', gap: 14 }, textButton: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', paddingBlock: 5, paddingInline: 2, backgroundColor: { default: 'transparent', ':active': theme.controlPressed }, borderRadius: 4, fontSize: '.75rem', color: { default: theme.secondary, ':hover': theme.text } },
+  actions: { display: 'flex', gap: 16 }, textButton: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', paddingBlock: 5, paddingInline: 2, backgroundColor: { default: 'transparent', ':active': theme.controlPressed }, borderRadius: 4, fontSize: '.75rem', color: { default: theme.secondary, ':hover': theme.text } },
   list: { listStyle: 'none', padding: 0, margin: 0, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: theme.separator },
-  row: { display: 'grid', gridTemplateColumns: { default: '22px minmax(0,1fr) 148px 62px 86px', '@media (max-width: 740px)': '22px minmax(0,1fr) 132px 52px 82px' }, alignItems: 'center', gap: 10, paddingBlock: 10, paddingInline: 1, minHeight: 56, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: theme.separator },
+  row: { display: 'grid', gridTemplateColumns: { default: '16px minmax(0,1fr) 144px 56px 84px', '@media (max-width: 740px)': '16px minmax(0,1fr) 124px 48px 84px' }, alignItems: 'center', gap: 8, paddingBlock: 8, paddingInline: 0, minHeight: 44, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: theme.separator },
   fileIcon: { display: 'flex', alignItems: 'center', color: theme.secondary }, errorColor: { color: theme.danger },
-  info: { minWidth: 0 }, nameLine: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }, name: { display: 'block', fontSize: '.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.5 },
+  info: { minWidth: 0 }, nameLine: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }, name: { display: 'block', fontSize: '.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '18px' },
   meta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, fontSize: '.75rem', color: theme.secondary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }, strike: { textDecoration: 'line-through' }, output: { color: theme.text },
   error: { fontSize: '.75rem', lineHeight: 1.4, color: theme.danger, overflowWrap: 'anywhere', marginTop: 4, marginBottom: 0 },
   result: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }, saved: { fontSize: '.8125rem', fontWeight: 550, fontVariantNumeric: 'tabular-nums' },
   s3: { fontSize: '.6875rem', color: theme.secondary, fontWeight: 500, flexShrink: 0 }, rowActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0 }, action: { width: 28, height: 28 },
   state: { fontSize: '.75rem', color: theme.secondary }, spinner: { width: 14, height: 14, borderWidth: 1.5, borderStyle: 'solid', borderColor: theme.border, borderTopColor: theme.secondary, borderRadius: '50%', animationName: { default: spin, '@media (prefers-reduced-motion: reduce)': 'none' }, animationDuration: '.8s', animationTimingFunction: 'linear', animationIterationCount: 'infinite' },
-  footer: { display: 'flex', alignItems: 'center', gap: 20, minHeight: 66, paddingBlock: 12, paddingInline: 27, backgroundColor: theme.toolbar, backdropFilter: theme.blur, flexShrink: 0 },
+  footer: { display: 'flex', alignItems: 'center', gap: 16, minHeight: 56, paddingBlock: 8, paddingInline: 20, backgroundColor: theme.toolbar, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: theme.separator, flexShrink: 0 },
+  glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.12)', backgroundColor: { default: 'rgba(5,35,41,.45)', '@media (prefers-reduced-transparency: reduce)': '#316d87', '@media (prefers-contrast: more)': '#20556a' }, backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
   summary: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }, summaryTitle: { fontSize: '.8125rem', fontWeight: 550 }, summaryMeta: { fontSize: '.75rem', color: theme.secondary },
-  primary: { marginLeft: 'auto', paddingBlock: 6, paddingInline: 15, fontWeight: 550, minHeight: 32, whiteSpace: 'nowrap', color: theme.primaryText, borderColor: 'transparent', backgroundColor: { default: theme.accent, ':hover': theme.accentHover, ':active': theme.accentPressed } },
+  primary: { marginLeft: 'auto', paddingBlock: 4, paddingInline: 12, fontWeight: 550, minHeight: 28, whiteSpace: 'nowrap', color: theme.primaryText, borderColor: 'transparent', backgroundColor: { default: theme.accent, ':hover': theme.accentHover, ':active': theme.accentPressed } },
 });

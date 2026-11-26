@@ -1,11 +1,17 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IPC } from '../shared/contracts';
-import type { AppState, TinyPNG } from '../shared/contracts';
+import type { AppState, TinyPNG, SettingsCategory } from '../shared/contracts';
 
 const api: TinyPNG = {
   getState: () => ipcRenderer.invoke(IPC.getState),
   onState: callback => { const listener = (_event: Electron.IpcRendererEvent, state: AppState): void => callback(state); ipcRenderer.on(IPC.state, listener); return () => { ipcRenderer.removeListener(IPC.state, listener); }; },
-  onOpenSettings: callback => { const listener = (): void => callback(); ipcRenderer.on(IPC.openSettings, listener); return () => { ipcRenderer.removeListener(IPC.openSettings, listener); }; },
+  onOpenSettings: callback => {
+    const listener = (_event: Electron.IpcRendererEvent, category?: SettingsCategory): void => callback(category);
+    ipcRenderer.on(IPC.openSettings, listener);
+    ipcRenderer.send(IPC.settingsReady);
+    return () => { ipcRenderer.removeListener(IPC.openSettings, listener); };
+  },
+  openSettings: category => ipcRenderer.invoke(IPC.openSettings, category),
   chooseFiles: () => ipcRenderer.invoke(IPC.chooseFiles),
   enqueueFiles: files => ipcRenderer.invoke(IPC.enqueue, files.map(file => webUtils.getPathForFile(file)).filter(Boolean)),
   chooseWatchFolder: () => ipcRenderer.invoke(IPC.chooseWatch), startWatch: () => ipcRenderer.invoke(IPC.startWatch), stopWatch: () => ipcRenderer.invoke(IPC.stopWatch),

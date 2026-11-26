@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import type { AppState, Settings as Preferences, SettingsPatch } from '../../../shared/contracts';
+import type { AppState, Settings as Preferences, SettingsPatch, SettingsCategory } from '../../../shared/contracts';
 import { LOCALES } from '../../../shared/locales';
 import type { ActionRunner } from '../application/useAppState';
 import type { Translator } from '../localization/i18n';
@@ -9,7 +9,7 @@ import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
 import { Icon } from '../../lib/Icon';
 
-interface Props { state: AppState; open: boolean; initialCategory?: SettingsCategory; close: () => void; run: ActionRunner; t: Translator }
+interface Props { state: AppState; category: SettingsCategory; setCategory: (category: SettingsCategory) => void; run: ActionRunner; t: Translator }
 function Toggle({ label, checked, disabled, change }: { label: string; checked: boolean; disabled?: boolean; change: (value: boolean) => void }) {
   return <label {...stylex.props(controls.row)}><span>{label}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled}
     {...stylex.props(styles.toggle, checked && styles.checked)} onChange={(event) => change(event.currentTarget.checked)} /></label>;
@@ -26,13 +26,13 @@ function NumericSetting({ value, label, max = 32768, errorKey = 'error.dimension
       if (Number(input.value) !== value) change(Number(input.value));
     }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
 }
-function Quality({ value, change, t }: { value: number; change: (value: number) => void; t: Translator }) {
+function Quality({ value, disabled, change, t }: { value: number; disabled: boolean; change: (value: number) => void; t: Translator }) {
   const selected = value >= 90 ? 95 : value <= 65 ? 60 : 80;
   return <fieldset {...stylex.props(styles.fieldset, styles.qualityGroup)}>
     <legend {...stylex.props(styles.qualityHeading)}>{t('settings.quality')}</legend>
     <div {...stylex.props(styles.qualityTabs)}>
       {([{ quality: 95, label: 'settings.qualityLight' }, { quality: 80, label: 'settings.qualityBalanced' }, { quality: 60, label: 'settings.qualityStrong' }] as const).map((preset) =>
-        <label key={preset.quality} {...stylex.props(styles.qualityTab, selected === preset.quality && styles.qualitySelected)}>
+        <label key={preset.quality} {...stylex.props(styles.qualityTab, selected === preset.quality && styles.qualitySelected, disabled && styles.disabledSegment, disabled && selected === preset.quality && styles.disabledSelected)}>
           <input {...stylex.props(styles.qualityInput)} type="radio" name="quality" value={preset.quality} checked={selected === preset.quality}
             onChange={() => change(preset.quality)} />
           <span>{t(preset.label)}</span>
@@ -41,7 +41,7 @@ function Quality({ value, change, t }: { value: number; change: (value: number) 
   </fieldset>;
 }
 
-function S3Settings({ state, open, run, t }: Pick<Props, 'state' | 'open' | 'run' | 't'>) {
+function S3Settings({ state, run, t }: Pick<Props, 'state' | 'run' | 't'>) {
   const settings = state.settings;
   const [region, setRegion] = useState(settings.s3Region);
   const [bucket, setBucket] = useState(settings.s3Bucket);
@@ -53,8 +53,10 @@ function S3Settings({ state, open, run, t }: Pick<Props, 'state' | 'open' | 'run
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => { setRegion(settings.s3Region); setBucket(settings.s3Bucket); setPrefix(settings.s3Prefix); }, [settings.s3Region, settings.s3Bucket, settings.s3Prefix]);
   useEffect(() => {
-    if (!open) { setAccessKeyId(''); setSecretAccessKey(''); setSessionToken(''); setFailure(null); }
-  }, [open]);
+    const clearDrafts = () => { if (document.hidden) { setAccessKeyId(''); setSecretAccessKey(''); setSessionToken(''); } };
+    document.addEventListener('visibilitychange', clearDrafts);
+    return () => document.removeEventListener('visibilitychange', clearDrafts);
+  }, []);
   const configured = state.hasS3Credentials && !!settings.s3Region.trim() && !!settings.s3Bucket.trim();
   const destinationChanged = region !== settings.s3Region || bucket !== settings.s3Bucket || prefix !== settings.s3Prefix;
   const saveDestination = () => void run(async () => {
@@ -89,7 +91,6 @@ function S3Settings({ state, open, run, t }: Pick<Props, 'state' | 'open' | 'run
   </fieldset>;
 }
 
-export type SettingsCategory = 'images' | 'automation' | 'general' | 'cloud';
 const categories = [
   { id: 'images', label: 'settings.images', icon: 'photo' },
   { id: 'automation', label: 'settings.automation', icon: 'automation' },
@@ -97,33 +98,14 @@ const categories = [
   { id: 'cloud', label: 's3.heading', icon: 'cloud' },
 ] as const;
 
-export function Settings({ state, open, initialCategory = 'images', close, run, t }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const [category, setCategory] = useState<SettingsCategory>('images');
+export function Settings({ state, category, setCategory, run, t }: Props) {
   const settings = state.settings;
   const patch = (value: SettingsPatch) => void run(() => window.tinyPNG.updateSettings(value));
-  useEffect(() => {
-    const element = dialog.current;
-    if (open && element && !element.open) {
-      previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      element.showModal();
-    } else if (!open && element?.open) {
-      element.close();
-      if (previousFocus.current?.isConnected) previousFocus.current.focus();
-    }
-  }, [open]);
-  useEffect(() => { if (open) setCategory(initialCategory); }, [open, initialCategory]);
-
-  return <dialog ref={dialog} {...stylex.props(styles.dialog, !settings.glassEnabled && styles.solidDialog)} aria-labelledby="settings-title" onClose={close} onCancel={(event) => { event.preventDefault(); close(); }}>
-    <header {...stylex.props(styles.header)}>
-      <button type="button" {...stylex.props(controls.icon, styles.close)} aria-label={t('common.close')} onClick={close}><Icon name="close" size={15} /></button>
-      <h2 id="settings-title" {...stylex.props(styles.title)}>{t('settings.heading')}</h2>
-    </header>
+  return <main {...stylex.props(styles.window)}>
     <div {...stylex.props(styles.body)}>
       <nav {...stylex.props(styles.sidebar)} aria-label={t('settings.heading')}>
         {categories.map((item) => <button type="button" key={item.id} {...stylex.props(styles.navigation, category === item.id && styles.navigationSelected)} aria-current={category === item.id ? 'page' : undefined} onClick={() => setCategory(item.id)}>
-          <Icon name={item.icon} size={17} /><span>{t(item.label)}</span>
+          <Icon name={item.icon} size={16} /><span>{t(item.label)}</span>
         </button>)}
       </nav>
       <div {...stylex.props(styles.panel)} aria-labelledby="settings-category">
@@ -131,7 +113,7 @@ export function Settings({ state, open, initialCategory = 'images', close, run, 
         {state.notice && category !== 'cloud' && <div {...stylex.props(styles.inlineNotice)} role="alert"><span>{state.notice}</span><button type="button" {...stylex.props(controls.icon)} aria-label={t('common.close')} onClick={() => void run(() => window.tinyPNG.dismissNotice())}><Icon name="close" size={14} /></button></div>}
         {category === 'images' && <>
           <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing}>
-            <Quality value={settings.quality} change={(quality) => patch({ quality })} t={t} />
+            <Quality value={settings.quality} disabled={state.isProcessing} change={(quality) => patch({ quality })} t={t} />
           </fieldset>
           <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing}>
             <h4 {...stylex.props(controls.heading)}>{t('settings.saveHeading')}</h4>
@@ -148,7 +130,7 @@ export function Settings({ state, open, initialCategory = 'images', close, run, 
             <Toggle label={t('settings.resize')} checked={settings.resizeEnabled} change={(resizeEnabled) => patch({ resizeEnabled })} />
             <fieldset {...stylex.props(styles.fieldset, styles.resize)} disabled={!settings.resizeEnabled}>
               <div {...stylex.props(styles.qualityTabs, styles.resizeModes)} role="radiogroup" aria-label={t('settings.resizeMode')}>
-                {(['percent', 'dimensions'] as const).map((mode) => <label key={mode} {...stylex.props(styles.qualityTab, settings.resizeMode === mode && styles.qualitySelected)}>
+                {(['percent', 'dimensions'] as const).map((mode) => <label key={mode} {...stylex.props(styles.qualityTab, settings.resizeMode === mode && styles.qualitySelected, (!settings.resizeEnabled || state.isProcessing) && styles.disabledSegment, (!settings.resizeEnabled || state.isProcessing) && settings.resizeMode === mode && styles.disabledSelected)}>
                   <input {...stylex.props(styles.qualityInput)} type="radio" name="resize-mode" value={mode} checked={settings.resizeMode === mode} onChange={() => patch({ resizeMode: mode })} />
                   <span>{t(mode === 'percent' ? 'settings.resizePercentMode' : 'settings.resizeDimensionsMode')}</span>
                 </label>)}
@@ -178,35 +160,34 @@ export function Settings({ state, open, initialCategory = 'images', close, run, 
             {LOCALES.map((language) => <option key={language} value={language}>{({ en: 'English', vi: 'Tiếng Việt', ja: '日本語' })[language]}</option>)}</select></label>
           <Toggle label={t('settings.glass')} checked={settings.glassEnabled} change={(glassEnabled) => patch({ glassEnabled })} />
         </section>}
-        {category === 'cloud' && <S3Settings state={state} open={open} run={run} t={t} />}
+        {category === 'cloud' && <S3Settings state={state} run={run} t={t} />}
       </div>
     </div>
-  </dialog>;
+  </main>;
 }
 
 const styles = stylex.create({
-  dialog: { width: 760, height: 'min(620px,calc(100vh - 48px))', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)', padding: 0, color: theme.text, borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, borderRadius: 12, backgroundColor: theme.material, backdropFilter: theme.blur, boxShadow: '0 22px 70px rgba(0,0,0,.28)', overflow: 'hidden', '::backdrop': { backgroundColor: 'rgba(0,0,0,.25)' } },
-  solidDialog: { backgroundColor: theme.canvas, backdropFilter: 'none' },
-  header: { height: 49, paddingInline: 13, display: 'flex', alignItems: 'center', gap: 11, backgroundColor: theme.toolbar },
-  close: { width: 24, height: 24 }, title: { margin: 0, fontSize: '.875rem', fontWeight: 600, letterSpacing: '-.01em' },
-  body: { display: 'flex', height: 'calc(100% - 49px)', minHeight: 0 },
-  sidebar: { flexShrink: 0, width: { default: 164, '@media (max-width: 700px)': 148 }, paddingBlock: 12, paddingInline: 9, backgroundColor: theme.sidebar, overflowY: 'auto' },
-  navigation: { display: 'flex', alignItems: 'center', gap: 9, width: '100%', minHeight: 36, paddingBlock: 8, paddingInline: 10, textAlign: 'left', fontSize: '.8125rem', fontWeight: 500, color: theme.text, borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', borderRadius: 6, backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed } },
+  window: { height: '100%', color: theme.text, backgroundColor: theme.canvas, fontSize: '.8125rem', lineHeight: '18px' },
+  body: { display: 'flex', height: '100%', minHeight: 0 },
+  sidebar: { flexShrink: 0, width: 156, paddingBlock: 16, paddingInline: 8, backgroundColor: theme.sidebar, borderRightWidth: 1, borderRightStyle: 'solid', borderRightColor: theme.separator, overflowY: 'auto' },
+  navigation: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 32, paddingBlock: 7, paddingInline: 8, textAlign: 'left', fontSize: '.8125rem', fontWeight: 500, color: theme.text, borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', borderRadius: 6, backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed } },
   navigationSelected: { backgroundColor: theme.accentTint, color: theme.accent },
-  panel: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflowY: 'auto', paddingBlock: 23, paddingInline: { default: 25, '@media (max-width: 700px)': 19 }, backgroundColor: theme.surface },
-  categoryTitle: { fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-.015em', lineHeight: 1.3, marginTop: 0, marginBottom: 3 },
-  fieldset: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', paddingInline: 0, margin: 0, minWidth: 0, opacity: { default: 1, ':disabled': .5 } },
-  resize: { display: 'flex', flexDirection: 'column', gap: 14, padding: 0 },
-  dimensions: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }, dimension: { display: 'flex', flexDirection: 'column', gap: 7, fontSize: '.75rem', color: theme.secondary }, number: { width: '100%', maxWidth: '100%', fontVariantNumeric: 'tabular-nums' },
-  toggle: { appearance: 'none', position: 'relative', flexShrink: 0, width: 32, height: 18, borderRadius: 18, backgroundColor: theme.border, cursor: 'pointer', margin: 0, '::after': { content: '""', position: 'absolute', top: 2, left: 2, height: 14, width: 14, borderRadius: '50%', backgroundColor: '#ffffff', transform: 'translateX(0)' } },
+  panel: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflowY: 'auto', padding: 24, backgroundColor: theme.canvas },
+  categoryTitle: { fontSize: '1.0625rem', fontWeight: 600, letterSpacing: '-.015em', lineHeight: '22px', margin: 0 },
+  fieldset: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', margin: 0, minWidth: 0 },
+  resize: { display: 'flex', flexDirection: 'column', gap: 12, padding: 0 },
+  dimensions: { display: 'flex', flexDirection: 'column', gap: 12 }, dimension: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: theme.text, lineHeight: '18px' }, number: { width: 104, justifySelf: 'end', fontVariantNumeric: 'tabular-nums' },
+  toggle: { appearance: 'none', position: 'relative', flexShrink: 0, width: 32, height: 18, borderRadius: 18, backgroundColor: theme.border, cursor: 'pointer', margin: 0, justifySelf: 'end', '::after': { content: '""', position: 'absolute', top: 2, left: 2, height: 14, width: 14, borderRadius: '50%', backgroundColor: '#ffffff', transform: 'translateX(0)' } },
   checked: { backgroundColor: theme.accent, '::after': { transform: 'translateX(14px)' } },
-  qualityGroup: { paddingBlock: 0 }, qualityHeading: { fontSize: '.8125rem', fontWeight: 600, marginBottom: 12, padding: 0 },
-  qualityTabs: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 2, padding: 2, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 7, backgroundColor: theme.canvas },
-  qualityTab: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 30, paddingBlock: 6, paddingInline: 7, borderRadius: 5, color: theme.secondary, fontSize: '.75rem', fontWeight: 500, lineHeight: 1.35, textAlign: 'center', cursor: 'pointer', backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed }, outlineStyle: { default: 'none', ':focus-within': 'solid' }, outlineWidth: 2, outlineColor: theme.accent, outlineOffset: 1 },
-  resizeModes: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))' }, qualitySelected: { color: theme.selectionText, backgroundColor: theme.selection, boxShadow: '0 1px 3px rgba(0,0,0,.12)' },
+  qualityGroup: { paddingBlock: 0 }, qualityHeading: { fontSize: '.8125rem', fontWeight: 600, marginBottom: 16, padding: 0 },
+  qualityTabs: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 2, padding: 2, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 6, backgroundColor: theme.canvas },
+  qualityTab: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingBlock: 4, paddingInline: 8, borderRadius: 5, color: theme.secondary, fontSize: '.75rem', fontWeight: 500, lineHeight: 1.35, textAlign: 'center', cursor: 'pointer', backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed }, outlineStyle: { default: 'none', ':focus-within': 'solid' }, outlineWidth: 2, outlineColor: theme.accent, outlineOffset: 1 },
+  resizeModes: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))', minHeight: 32 }, qualitySelected: { color: theme.selectionText, backgroundColor: theme.selection, boxShadow: '0 1px 3px rgba(0,0,0,.12)' },
+  disabledSegment: { color: theme.secondary, cursor: 'default', boxShadow: 'none', backgroundColor: { default: theme.canvas, ':hover': theme.canvas, ':active': theme.canvas } },
+  disabledSelected: { backgroundColor: { default: theme.controlPressed, ':hover': theme.controlPressed, ':active': theme.controlPressed } },
   qualityInput: { position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', margin: 0, cursor: 'pointer' },
   note: { fontSize: '.75rem', color: theme.secondary, lineHeight: 1.5, margin: 0 }, credentialStatus: { fontSize: '.75rem', color: theme.secondary, marginTop: 4, marginBottom: 0 },
-  credentialField: { display: 'flex', flexDirection: 'column', gap: 7, fontSize: '.75rem', color: theme.secondary }, credentialInput: { width: '100%', maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },
+  credentialField: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: theme.text }, credentialInput: { width: 224, maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },
   failure: { fontSize: '.75rem', color: theme.danger, lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' },
   inlineNotice: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', padding: 9, marginTop: 14, borderRadius: 6, color: theme.danger, backgroundColor: theme.dangerBackground, fontSize: '.75rem', lineHeight: 1.5 },
 });

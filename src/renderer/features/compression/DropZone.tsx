@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import type { ActionRunner } from '../application/useAppState';
 import type { Translator } from '../localization/i18n';
+import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
 
-export function DropZone({ run, t }: { run: ActionRunner; t: Translator }) {
+export function DropZone({ run, t, compact = false }: { run: ActionRunner; t: Translator; compact?: boolean }) {
   const [targeted, setTargeted] = useState(false);
   const depth = useRef(0);
   useEffect(() => {
@@ -26,20 +27,23 @@ export function DropZone({ run, t }: { run: ActionRunner; t: Translator }) {
     };
   }, [run]);
 
-  return <button type="button" {...stylex.props(styles.zone, targeted && styles.targeted)}
-    aria-label={t('drop.accessible')} onClick={() => void run(() => window.tinyPNG.chooseFiles())}>
-    <svg {...stylex.props(styles.icon)} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+  return <section {...stylex.props(styles.zone, compact && styles.compact, targeted && styles.targeted)} aria-label={t('drop.accessible')}>
+    <svg {...stylex.props(styles.icon, compact && styles.compactIcon)} viewBox="0 0 48 48" fill="none" aria-hidden="true">
       <path d="M24 5v24m-8-8 8 8 8-8M9 28v10a4 4 0 0 0 4 4h22a4 4 0 0 0 4-4V28" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
-    <span {...stylex.props(styles.title)}>{t(targeted ? 'drop.active' : 'drop.prompt')}</span>
-    <span {...stylex.props(styles.choose)}>{t('drop.choose')}</span>
-  </button>;
+    <span {...stylex.props(styles.title, compact && styles.compactTitle)}>{t(targeted ? 'drop.active' : 'drop.prompt')}</span>
+    <button type="button" {...stylex.props(controls.button, !compact && styles.choose)} onClick={() => void run(() => window.tinyPNG.chooseFiles())}>
+      {t('drop.choose')}<kbd {...stylex.props(styles.shortcut)}>⌘O</kbd>
+    </button>
+  </section>;
 }
 
 const styles = stylex.create({
-  zone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, width: '100%', minHeight: 190, padding: 20, color: theme.text, borderWidth: 1.5, borderStyle: 'dashed', borderColor: theme.border, borderRadius: 17, backgroundColor: { default: 'transparent', ':hover': theme.accentTint, ':active': theme.actionSurface } },
-  targeted: { backgroundColor: theme.accentTint, borderColor: theme.accent, borderStyle: 'solid' },
-  icon: { height: 32, width: 32, color: theme.accent, marginBottom: 2 },
-  title: { fontSize: '1.25rem', letterSpacing: '-.015em', fontWeight: 600, lineHeight: 1.4 },
-  choose: { fontSize: '.8125rem', color: theme.text, fontWeight: 550, paddingBlock: 7, paddingInline: 18, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 22, backgroundColor: theme.actionSurface },
+  zone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, width: '100%', maxWidth: 440, minHeight: 240, padding: 24, color: theme.text, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.border, borderRadius: 8, backgroundColor: { default: 'rgba(12,12,12,.35)', '@media (prefers-reduced-transparency: reduce)': '#264a58' } },
+  compact: { maxWidth: '100%', minHeight: 64, paddingBlock: 16, paddingInline: 16, flexDirection: 'row', gap: 12 },
+  targeted: { backgroundColor: 'rgba(12,12,12,.44)', borderColor: theme.accent, borderStyle: 'solid' },
+  icon: { height: 32, width: 32, color: theme.accent }, compactIcon: { width: 24, height: 24, flexShrink: 0 },
+  title: { fontSize: '1.0625rem', fontWeight: 600, lineHeight: '22px' }, compactTitle: { marginRight: 'auto', fontSize: '.8125rem', fontWeight: 500, lineHeight: '18px' },
+  choose: { color: theme.primaryText, borderColor: 'transparent', backgroundColor: { default: theme.accent, ':hover': theme.accentHover, ':active': theme.accentPressed } },
+  shortcut: { marginLeft: 12, fontSize: '.75rem', fontFamily: 'inherit', fontWeight: 400, opacity: .7 },
 });

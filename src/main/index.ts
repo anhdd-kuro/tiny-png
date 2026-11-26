@@ -3,13 +3,14 @@ import type { IpcMainInvokeEvent, MenuItemConstructorOptions } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SettingsStore } from './features/settings/store';
+import { SettingsWindow } from './features/settings/window';
 import { CompressionQueue } from './features/compression/queue';
 import { FolderWatchController } from './features/folder-watch/controller';
 import { createAppWindow } from './features/app-window/window';
 import { CornerWindow } from './features/corner-drop/window';
 import { translations } from '../shared/locales';
 import { IPC } from '../shared/contracts';
-import type { AppState, CompressionResult, BatchSummary } from '../shared/contracts';
+import type { AppState, CompressionResult, BatchSummary, SettingsCategory } from '../shared/contracts';
 import { CredentialStore } from './platform/credential-store';
 import { S3Service } from './features/s3/service';
 import type { S3Credentials } from '../shared/contracts';
@@ -25,6 +26,7 @@ let mainWindow: BrowserWindow;
 let corner: CornerWindow;
 let tray: Tray;
 let settings: SettingsStore;
+let settingsWindow: SettingsWindow;
 let queue: CompressionQueue;
 let watch: FolderWatchController;
 let quitting = false;
@@ -50,7 +52,7 @@ function snapshot(): AppState {
 function broadcast(): void {
   if (!queue || !settings || !watch) return;
   const state = snapshot();
-  for (const window of [mainWindow, corner?.window]) {
+  for (const window of [mainWindow, corner?.window, settingsWindow?.window]) {
     if (window && !window.isDestroyed()) window.webContents.send(IPC.state, state);
   }
   const failed = queue.jobs.filter(job => job.state === 'failed').length;
@@ -59,14 +61,19 @@ function broadcast(): void {
 function notice(error: unknown): void { currentNotice = error; broadcast(); }
 function perform(operation: () => Promise<unknown>): void { void operation().catch(notice); }
 function openMain(): void { mainWindow.show(); mainWindow.focus(); }
+function openSettings(category?: SettingsCategory): void { settingsWindow.open(category); }
+function dialogParent(): BrowserWindow {
+  const focused = BrowserWindow.getFocusedWindow();
+  return focused && [mainWindow, settingsWindow?.window].includes(focused) ? focused : mainWindow;
+}
 
 async function chooseFiles(): Promise<void> {
-  const result = await dialog.showOpenDialog(mainWindow, { title: text('dialog.chooseImages'), properties: ['openFile', 'openDirectory', 'multiSelections'],
+  const result = await dialog.showOpenDialog(dialogParent(), { title: text('dialog.chooseImages'), properties: ['openFile', 'openDirectory', 'multiSelections'],
     filters: [{ name: text('dialog.images'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'avif'] }] });
   if (!result.canceled) await queue.enqueue(result.filePaths);
 }
 async function chooseWatchFolder(): Promise<void> {
-  const result = await dialog.showOpenDialog(mainWindow, { title: text('dialog.watchFolder'), defaultPath: settings.value.watchPath ?? app.getPath('desktop'),
+  const result = await dialog.showOpenDialog(dialogParent(), { title: text('dialog.watchFolder'), defaultPath: settings.value.watchPath ?? app.getPath('desktop'),
     properties: ['openDirectory'], buttonLabel: text('dialog.watchButton') });
   if (!result.canceled && result.filePaths[0]) await watch.start(result.filePaths[0]);
 }
@@ -84,7 +91,7 @@ function createTray(): Tray {
   return new Tray(image);
 }
 function updateMenus(): void {
-  const showSettings = (): void => { openMain(); mainWindow.webContents.send(IPC.openSettings); };
+  const showSettings = (): void => openSettings();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: APP_NAME, submenu: [
       { label: text('app.settings'), accelerator: 'CmdOrCtrl+,', click: showSettings }, { type: 'separator' },
@@ -108,12 +115,19 @@ function updateMenus(): void {
 function registerIPC(): void {
   const handle = (channel: string, operation: (...args: unknown[]) => unknown): void => {
     ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-      if (![mainWindow.webContents, corner.window.webContents].includes(event.sender)) throw new Error(text('error.invalidSettings'));
+      if (![mainWindow.webContents, corner.window.webContents, settingsWindow.window?.webContents].includes(event.sender)) throw new Error(text('error.invalidSettings'));
       try { return await operation(...args); }
       catch (error) { notice(error); throw new Error(errorText(error)); }
     });
   };
+  ipcMain.on(IPC.settingsReady, event => {
+    if (event.sender === settingsWindow.window?.webContents) settingsWindow.rendererReady();
+  });
   handle(IPC.getState, snapshot);
+  handle(IPC.openSettings, category => {
+    if (category !== undefined && category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud') throw new Error('error.invalidSettings');
+    openSettings(category);
+  });
   handle(IPC.chooseFiles, chooseFiles);
   handle(IPC.enqueue, input => {
     if (!Array.isArray(input) || input.length > 5000 || !input.every((file: unknown) => typeof file === 'string' && path.isAbsolute(file))) throw new Error('error.invalidPath');
@@ -123,7 +137,7 @@ function registerIPC(): void {
   handle(IPC.startWatch, () => settings.value.watchPath ? watch.start() : chooseWatchFolder());
   handle(IPC.stopWatch, () => watch.stop());
   handle(IPC.chooseOutput, async () => {
-    const result = await dialog.showOpenDialog(mainWindow, { title: text('dialog.outputFolder'), properties: ['openDirectory', 'createDirectory'] });
+    const result = await dialog.showOpenDialog(dialogParent(), { title: text('dialog.outputFolder'), properties: ['openDirectory', 'createDirectory'] });
     if (!result.canceled && result.filePaths[0]) { settings.setOutput(result.filePaths[0]); broadcast(); }
   });
   handle(IPC.updateSettings, patch => {
@@ -131,6 +145,7 @@ function registerIPC(): void {
     settings.update(patch);
     if (!settings.value.notificationsEnabled) completion.cancelPending();
     if (previousGlass !== settings.value.glassEnabled) applyWindowMaterial(mainWindow, settings.value.glassEnabled);
+    settingsWindow.updateAppearance();
     corner.update(settings.value); updateMenus(); broadcast(); return snapshot();
   });
   handle(IPC.pause, () => queue.pause());
@@ -181,6 +196,9 @@ else {
     mainWindow = createAppWindow({ preload, html: path.join(build, 'renderer/index.html'), isQuitting: () => quitting });
     applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     corner = new CornerWindow({ preload, html: path.join(build, 'renderer/features/corner-drop/index.html'), anchorWindow: mainWindow, onError: notice });
+    settingsWindow = new SettingsWindow({ preload, html: path.join(build, 'renderer/features/settings/index.html'),
+      title: () => `${text('settings.heading')} — ${APP_NAME}`, glassEnabled: () => settings.value.glassEnabled,
+      isQuitting: () => quitting, onError: notice });
     tray = createTray();
     completion = new CompletionNotifier({ isEnabled: () => settings.value.notificationsEnabled, translate: text, openResults: openMain,
       show: content => {
@@ -207,7 +225,7 @@ else {
     if (settings.value.watchEnabled && settings.value.watchPath) await watch.start().catch(notice);
   }).catch(error => { dialog.showErrorBox(APP_NAME, errorText(error)); app.quit(); });
   app.on('window-all-closed', () => {});
-  app.on('before-quit', () => { quitting = true; completion?.dispose(); corner?.dispose(); if (watch) perform(() => watch.stop({ persist: false })); });
+  app.on('before-quit', () => { quitting = true; completion?.dispose(); settingsWindow?.dispose(); corner?.dispose(); if (watch) perform(() => watch.stop({ persist: false })); });
   process.on('SIGTERM', () => app.quit());
   process.on('SIGINT', () => app.quit());
   app.on('open-file', (event, file) => { event.preventDefault(); perform(() => app.whenReady().then(() => queue.enqueue([file]))); });

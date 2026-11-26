@@ -3,6 +3,10 @@ storeDir: .pnpm-store
 saveExact: true
 engineStrict: true
 verifyDepsBeforeRun: false
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@types/node@26.6.11'
+  - '@types/react@19.3.3'
 allowBuilds:
   electron: true
   esbuild: true

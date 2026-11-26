@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   await fs.rm(app, { recursive: true, force: true });
   await fs.rename(packagedApp, app);
   const resources = path.join(app, 'Contents/Resources/app');
-  for (const file of ['build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html']) {
+  for (const file of ['build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html', 'build/renderer/features/settings/index.html']) {
     await fs.access(path.join(resources, file));
   }
   const executable = path.join(app, 'Contents/MacOS', APP_NAME);

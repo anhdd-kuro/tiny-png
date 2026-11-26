@@ -48,7 +48,9 @@ Build dùng chữ ký **ad-hoc**, cùng loại đã kiểm tra ở AI Account Sw
 
 Cài đặt hỗ trợ English, Tiếng Việt và 日本語. Vùng thả nổi có hai chế độ: luôn hiện, hoặc chỉ hiện khi đang kéo file đến gần vị trí đã chọn. Chọn một trong bốn góc hoặc **Giữa phía trên (Dynamic Island)**, dạng pill bên dưới notch. Có thể tắt vùng thả. Nhận biết kéo file dùng API macOS qua Koffi trong process; không có Swift helper/subprocess.
 
-Giao diện mặc định giữ nền gradient xanh dương–xanh lá theo tham chiếu tinyPNG.App, cùng đầu khủng long riêng của app. **Glass** là tùy chọn trong Cài đặt, mặc định tắt: dùng native macOS vibrancy qua Electron kết hợp các lớp UI trong suốt; đây không phải Liquid Glass. Khi bật Glass và hệ thống yêu cầu giảm độ trong suốt hoặc tăng tương phản, app tắt vibrancy/blur và dùng nền đặc; Reduce Motion dừng spinner chuyển động.
+Nền chính luôn giữ gradient xanh dương–xanh lá theo tham chiếu tinyPNG.App, cùng đầu khủng long riêng của app. Toolbar gọn, control theo kích thước desktop và vùng thả thu nhỏ khi queue có ảnh. **Glass** là tùy chọn trong Cài đặt, mặc định tắt: tạo lớp trong suốt ở toolbar/footer và vùng nổi, giữ nguyên gradient chính. Cửa sổ hỗ trợ native macOS vibrancy qua Electron; đây không phải Liquid Glass. Khi hệ thống yêu cầu giảm độ trong suốt hoặc tăng tương phản, app tắt vibrancy/blur và dùng nền đặc ở các vùng chức năng; Reduce Motion dừng spinner chuyển động.
+
+Cài đặt mở trong cửa sổ macOS riêng, dùng light/dark theo hệ thống. `⌘,` mở hoặc đưa cửa sổ này lên trước; `⌘W` hoặc Escape đóng cửa sổ Cài đặt. Pane đang chọn được giữ khi đóng/mở lại trong cùng lần chạy app. `⌘O` chọn ảnh từ cửa sổ chính.
 
 Mức nén có ba lựa chọn: **Ưu tiên chất lượng · Cân bằng · Ưu tiên giảm dung lượng**. Resize tách riêng thành **Theo tỷ lệ (%)** và **Nhập kích thước (px)**; 50% đổi ảnh 2000 × 1000 thành 1000 × 500. App không upscale.
 
@@ -118,6 +120,8 @@ Lint dùng các rule chính thức của StyleX để kiểm tra style, shorthan
 - `scripts/build-app.ts`: đóng gói output đã compile và production dependencies vào app macOS; loại source/test/research khỏi bundle.
 
 `src/cli/` là entry CLI; `src/main/features/s3/` quản lý upload tùy chọn; `src/main/platform/` giữ chính sách cửa sổ và encrypted credential storage.
+
+`src/main/features/settings/window.ts` quản lý cửa sổ Cài đặt riêng; renderer có ba entry cho main, Settings và floating drop. [Quyết định thiết kế](src/renderer/docs/native-design.md) ghi nguồn tham khảo, phạm vi áp dụng skill và giới hạn bằng chứng visual.
 
 Các file trong `reports/` và `research_notes/Nghiên cứu TinyPNG cho macOS/` là tài liệu lịch sử của các phương án Tinify/Swift hoặc JavaScript trước đây. **Kiến trúc hiện tại: TypeScript 7 + React/StyleX + Electron, engine sharp/libvips offline, Node 26 LTS và pnpm.** Không dùng tài liệu lịch sử làm đặc tả kiến trúc đang chạy.
 
