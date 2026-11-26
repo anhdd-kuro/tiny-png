@@ -8,6 +8,8 @@ Nén ảnh trên máy bằng sharp/libvips, trong desktop app Electron. App vi�
 brew install --cask anhdd-kuro/tap/tiny-assets
 ```
 
+Nếu Homebrew yêu cầu trust cask từ tap cá nhân, chạy `brew trust --cask anhdd-kuro/tap/tiny-assets` rồi cài lại. Chỉ cần trust cask này; không cần trust toàn bộ tap.
+
 Cask phát hành cho Apple Silicon, macOS 13 trở lên. Source và release nằm tại [repo cá nhân](https://github.com/anhdd-kuro/tiny-png); tên hiển thị của app là **tiny assets**.
 
 ## Chạy và build
