@@ -1,13 +1,12 @@
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { build } from 'esbuild';
 import sharp from 'sharp';
 import { _electron as electron, type Page } from 'playwright';
 import { DEFAULT_SETTINGS } from '../src/main/features/settings/store';
 import { APP_NAME } from '../src/shared/app';
+import { prepareQAApplication } from './packaging/qa-application';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const qaRoot = path.join(root, 'tmp/ui-qa');
@@ -19,14 +18,13 @@ const qaProfile = path.join(qaRoot, 'qa-app-data/Tiny PNG');
 await fs.mkdir(qaProfile, { recursive: true });
 await fs.writeFile(path.join(qaProfile, 'settings.json'), JSON.stringify({ ...DEFAULT_SETTINGS, notificationsEnabled: false, cornerEnabled: false, watchEnabled: false, watchPath: null, s3Enabled: false, overwrite: false }));
 const metadata = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')) as { version: string };
-await fs.writeFile(path.join(runtime, 'package.json'), JSON.stringify({ name: 'tiny-assets-qa', version: metadata.version, main: 'entry.cjs' }));
-await build({ entryPoints: [path.join(root, 'scripts/qa-launch.ts')], bundle: true, platform: 'node', format: 'cjs', target: 'node24.22', external: ['electron'], outfile: path.join(runtime, 'entry.cjs') });
+const application = await prepareQAApplication(root, runtime, metadata.version);
 const app = await electron.launch({
-  executablePath: process.env.TINY_ASSETS_ELECTRON_EXECUTABLE ?? createRequire(import.meta.url)('electron') as string,
-  args: [runtime], cwd: root, timeout: 25_000, chromiumSandbox: true, colorScheme: null,
+  executablePath: application.executablePath,
+  args: application.args, cwd: root, timeout: 25_000, chromiumSandbox: true, colorScheme: null,
   env: { ...process.env, TINY_ASSETS_QA_THEME: 'light' },
   recordVideo: process.env.TINY_ASSETS_QA_VIDEO === '1' ? { dir: path.join(artifacts, 'videos'), size: { width: 760, height: 680 } } : undefined,
-});
+}).catch(async error => { await application.cleanup(); throw error; });
 const errors: string[] = [];
 app.on('window', page => page.on('pageerror', error => errors.push(error.message)));
 async function findWindow(suffix: string): Promise<Page> {
@@ -207,5 +205,5 @@ try {
   console.log('Renderer errors', JSON.stringify(errors));
   await fs.writeFile(path.join(artifacts, 'result.json'), JSON.stringify({ version: metadata.version, errors, profile: await app.evaluate(({ app }) => app.getPath('userData')) }, null, 2));
 } finally {
-  await app.close();
+  try { await app.close(); } finally { await application.cleanup(); }
 }

@@ -3,12 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as esbuild } from 'esbuild';
 import { build as viteBuild } from 'vite';
+import { collectBundledLicenses } from './packaging/licenses';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
 export async function buildSources(): Promise<void> {
   await rm(path.join(root, 'build'), { recursive: true, force: true });
-  await Promise.all([
+  const [nodeBuild] = await Promise.all([
     esbuild({
       absWorkingDir: root,
       entryPoints: {
@@ -22,12 +23,21 @@ export async function buildSources(): Promise<void> {
       target: 'node24.22',
       format: 'cjs',
       bundle: true,
-      external: ['electron', 'sharp', 'chokidar', 'koffi', '@aws-sdk/client-s3'],
+      external: ['electron', 'sharp', 'chokidar', 'koffi'],
+      minify: true,
+      legalComments: 'eof',
+      metafile: true,
       sourcemap: false,
       logLevel: 'info',
     }),
     viteBuild({ configFile: path.join(root, 'vite.config.ts') }),
   ]);
+  await collectBundledLicenses({
+    root,
+    metafile: nodeBuild.metafile,
+    rendererLicenseFile: path.join(root, 'build/renderer/licenses.json'),
+    outputDirectory: path.join(root, 'build/licenses'),
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

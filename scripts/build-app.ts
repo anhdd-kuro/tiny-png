@@ -7,6 +7,8 @@ import { packager } from '@electron/packager';
 import sharp from 'sharp';
 import { buildSources } from './build.ts';
 import { APP_ID, APP_NAME } from '../src/shared/app';
+import { pruneDevelopmentFiles } from './packaging/prune.ts';
+import { pruneMacLocales } from './packaging/locales.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -60,6 +62,7 @@ async function main(): Promise<void> {
     derefSymlinks: true,
     appBundleId: APP_ID,
     appCategoryType: 'public.app-category.photography',
+    extendInfo: { CFBundleDevelopmentRegion: 'en', CFBundleLocalizations: ['en', 'en-GB', 'ja', 'vi'] },
     icon,
     ignore: [
       /^\/(?:\.git|\.github|\.build|\.codex|\.agents|\.aws|\.pnpm-store|dist|src|test|tests|research_notes|reports|scripts|tmp|temp)(?:\/|$)/,
@@ -73,23 +76,43 @@ async function main(): Promise<void> {
   await fs.rm(app, { recursive: true, force: true });
   await fs.rename(packagedApp, app);
   const resources = path.join(app, 'Contents/Resources/app');
-  for (const file of ['build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html', 'build/renderer/features/settings/index.html']) {
+  const development = await pruneDevelopmentFiles(path.join(resources, 'node_modules'));
+  const locales = await pruneMacLocales(app);
+  for (const file of ['build/main/index.cjs', 'build/preload/index.cjs', 'build/cli/index.cjs', 'build/renderer/index.html', 'build/renderer/features/corner-drop/index.html', 'build/renderer/features/settings/index.html', 'build/licenses/manifest.json', 'build/renderer/licenses.json']) {
     await fs.access(path.join(resources, file));
   }
   const executable = path.join(app, 'Contents/MacOS', APP_NAME);
   const nativeSmoke = `
+    const assert = require('node:assert/strict');
+    const path = require('node:path');
     const appRequire = require('node:module').createRequire(process.argv[1]);
+    const packagedModules = path.join(path.dirname(process.argv[1]), 'node_modules') + path.sep;
+    const expected = ['sharp', 'koffi', 'chokidar', '@img/sharp-' + process.platform + '-' + process.arch + '/sharp.node',
+      '@img/sharp-libvips-' + process.platform + '-' + process.arch + '/binary', '@koromix/koffi-' + process.platform + '-' + process.arch];
+    for (const name of expected) assert.ok(appRequire.resolve(name).startsWith(packagedModules), 'Dependency escaped packaged node_modules: ' + name);
     const sharp = appRequire('sharp');
     const koffi = appRequire('koffi');
     if (!sharp.versions.vips || typeof koffi.load !== 'function') throw new Error('Missing native dependencies');
-    import(require('node:url').pathToFileURL(appRequire.resolve('chokidar')).href)
-      .then(() => console.log('Packaged sharp/libvips, koffi and chokidar loaded; Electron Node ' + process.versions.node))
-      .catch(error => { console.error(error); process.exitCode = 1; });
+    (async () => {
+      for (const format of ['png', 'jpeg', 'webp', 'avif']) {
+        const encoded = await sharp({ create: { width: 16, height: 12, channels: 3, background: '#348cab' } }).toFormat(format).toBuffer();
+        const decoded = await sharp(encoded).raw().toBuffer({ resolveWithObject: true });
+        assert.equal(decoded.info.width, 16); assert.equal(decoded.info.height, 12);
+        assert.ok(decoded.data.length > 0, 'Image codec failed: ' + format);
+      }
+      const library = koffi.load('/usr/lib/libSystem.B.dylib');
+      try { assert.equal(library.func('getpid', 'int', [])(), process.pid); }
+      finally { library.unload(); }
+      const chokidar = await import(require('node:url').pathToFileURL(appRequire.resolve('chokidar')).href);
+      assert.equal(typeof chokidar.watch, 'function');
+      console.log('Packaged PNG/JPEG/WebP/AVIF codecs, native Koffi call and chokidar passed; Electron Node ' + process.versions.node);
+    })().catch(error => { console.error(error); process.exitCode = 1; });
   `;
   run(executable, ['-e', nativeSmoke, path.join(resources, 'package.json')], { ...process.env, ELECTRON_RUN_AS_NODE: '1' });
   run('codesign', ['--force', '--deep', '--sign', '-', app]);
   run('codesign', ['--verify', '--deep', '--strict', app]);
   console.log(`App offline: ${app}`);
+  console.log(`Pruned: ${development.removedFiles} development files (${development.removedBytes} bytes), ${locales.removedLocales} locales (${locales.removedBytes} bytes).`);
   console.log(`Kiến trúc: ${architecture}; ad-hoc signed, chưa notarize.`);
 }
 

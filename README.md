@@ -32,6 +32,8 @@ pnpm install:app
 
 `pnpm build` chạy typecheck và `pnpm lint`, compile main/preload và build renderer trước khi tạo `dist/Tiny Assets.app`. Bundle giữ sharp/libvips, chokidar và Koffi cùng native dependencies. Script kiểm tra các dependency này bằng runtime Electron đã đóng gói, ký ad-hoc và verify chữ ký. Bản local chưa có Developer ID/notarization cho phân phối công khai; không phải Universal Binary.
 
+React/StyleX và AWS SDK được bundle khi build, không chép thêm các package này vào runtime. Full license/NOTICE nằm trong `build/licenses`; build dừng nếu thiếu license của dependency đã bundle. Packager bỏ type declarations, sourcemap và source C/C++ dùng lúc phát triển; giữ loader JS, native binary và license. Locale Electron chỉ giữ English, Tiếng Việt, 日本語 cùng các biến thể, có English fallback; dữ liệu ICU và codec ảnh được giữ nguyên.
+
 `pnpm install:app` stage và kiểm tra chữ ký trước khi cập nhật `~/Applications/Tiny Assets.app`, rồi mở app. Chỉ dừng/thay các bundle có ID `dev.kuro.tinypng`; tên cũ `tiny assets.app` và `Tiny PNG.app` cùng ID được di chuyển trong transaction. Nếu cài hoặc khởi chạy lỗi, script khôi phục bundle cũ.
 
 Tên hiển thị đổi thành **Tiny Assets**, nhưng bundle ID và thư mục dữ liệu `~/Library/Application Support/Tiny PNG` được giữ nguyên để bảo toàn settings, watcher và encrypted credentials. Installer không xóa ảnh hoặc dữ liệu người dùng.
@@ -113,6 +115,8 @@ pnpm qa:ui
 Typecheck dùng TypeScript 7 với strict mode. Tests dùng ảnh/thư mục tạm cho compressor, queue, settings, CLI và watcher; S3 dùng transport giả, không gọi AWS. `test:native` cần macOS desktop session có quyền WindowServer/pasteboard; chỉ đọc loại dữ liệu kéo và trạng thái chuột, không đọc nội dung clipboard. CI chạy pnpm frozen install, test, build và lưu app ZIP artifact trên macOS. Build thành công chưa thay thế việc kiểm tra drag-and-drop, VoiceOver, chế độ gần góc và Gatekeeper trên máy đích.
 
 `qa:ui` dùng Playwright chạy Electron với profile và ảnh thử riêng trong `tmp/ui-qa/`, chụp renderer và kiểm tra queue, file drop, folder watch, ba ngôn ngữ, nền/Glass và cửa sổ Settings. File picker được thay bằng lựa chọn fixture; engine nén và watcher chạy thật. Screenshot không bao gồm native frame/vibrancy của macOS; kiểm tra riêng phần đó khi review visual. Có thể đặt `TINY_ASSETS_ELECTRON_EXECUTABLE` để dùng Electron binary có sẵn, `TINY_ASSETS_QA_OUTPUT` để đổi thư mục ảnh, hoặc `TINY_ASSETS_QA_VIDEO=1` sau khi cài `pnpm exec playwright install ffmpeg` để ghi video.
+
+Sau `pnpm build`, chạy `TINY_ASSETS_QA_PACKAGED=1 pnpm qa:ui` để kiểm tra binary Electron và dependency thực của bundle đã prune. Chế độ này tạo bản sao QA tạm với profile riêng, rồi xóa bản sao và gỡ đăng ký khi xong; không cài bản dev vào Applications hoặc sửa profile người dùng.
 
 Lint dùng các rule chính thức của StyleX để kiểm tra style, shorthand và thuộc tính xung đột. Với cấu hình hiện tại, `border` shorthand không được compile thành CSS; điều này từng làm button, fieldset và dialog hiện viền mặc định của Chromium. Dùng `borderWidth`, `borderStyle`, `borderColor` và các longhand theo cạnh; giữ reset cho native form controls. `pnpm lint` là điều kiện bắt buộc trước khi build/phát hành.
 

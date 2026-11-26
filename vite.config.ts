@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => ({
     outDir: fileURLToPath(new URL('./build/renderer', import.meta.url)),
     emptyOutDir: true,
     sourcemap: false,
+    license: { fileName: 'licenses.json' },
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('./src/renderer/index.html', import.meta.url)),
