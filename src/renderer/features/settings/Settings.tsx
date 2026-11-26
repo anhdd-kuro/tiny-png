@@ -29,7 +29,7 @@ function NumericSetting({ value, label, max = 32768, errorKey = 'error.dimension
 function Quality({ value, disabled, change, t }: { value: number; disabled: boolean; change: (value: number) => void; t: Translator }) {
   const selected = value >= 90 ? 95 : value <= 65 ? 60 : 80;
   return <fieldset {...stylex.props(styles.fieldset, styles.qualityGroup)}>
-    <legend {...stylex.props(styles.qualityHeading)}>{t('settings.quality')}</legend>
+    <legend {...stylex.props(styles.qualityHeading, disabled && styles.disabledText)}>{t('settings.quality')}</legend>
     <div {...stylex.props(styles.qualityTabs)}>
       {([{ quality: 95, label: 'settings.qualityLight' }, { quality: 80, label: 'settings.qualityBalanced' }, { quality: 60, label: 'settings.qualityStrong' }] as const).map((preset) =>
         <label key={preset.quality} {...stylex.props(styles.qualityTab, selected === preset.quality && styles.qualitySelected, disabled && styles.disabledSegment, disabled && selected === preset.quality && styles.disabledSelected)}>
@@ -114,7 +114,7 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
             <Toggle label={t('settings.overwrite')} checked={settings.overwrite} change={(overwrite) => patch({ overwrite })} />
             <label {...stylex.props(controls.row)}><span>{t('settings.format')}</span><select {...stylex.props(controls.focus, controls.field)} value={settings.format} onChange={(event) => patch({ format: event.currentTarget.value as Preferences['format'] })}>
               <option value="original">{t('settings.originalFormat')}</option>{(['webp', 'jpeg', 'png', 'avif'] as const).map((format) => <option key={format} value={format}>{format === 'jpeg' ? 'JPEG' : format === 'webp' ? 'WebP' : format.toUpperCase()}</option>)}</select></label>
-            <div {...stylex.props(styles.pathGroup)}><span {...stylex.props(controls.heading)}>{t('settings.outputFolder')}</span><div {...stylex.props(controls.pathRow)}><span {...stylex.props(controls.path)} title={settings.outputDirectory ?? ''}>{settings.outputDirectory || t('settings.sameFolder')}</span>
+            <div {...stylex.props(styles.pathGroup)}><span {...stylex.props(styles.pathLabel)}>{t('settings.outputFolder')}</span><div {...stylex.props(controls.pathRow)}><span {...stylex.props(controls.path)} title={settings.outputDirectory ?? ''}>{settings.outputDirectory || t('settings.sameFolder')}</span>
               <button type="button" {...stylex.props(controls.focus, controls.button)} aria-label={t('settings.chooseOutputFolder')} onClick={() => void run(() => window.tinyPNG.chooseOutputFolder())}>{t('common.choose')}</button>
               {settings.outputDirectory && <button type="button" {...stylex.props(controls.focus, controls.button)} onClick={() => patch({ outputDirectory: null })}>{t('settings.reset')}</button>}</div></div>
           </fieldset>
@@ -150,15 +150,15 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
         {category === 'general' && <section {...stylex.props(controls.section)}>
           <label {...stylex.props(controls.row)}><span>{t('settings.language')}</span><select {...stylex.props(controls.focus, controls.field)} value={settings.language} onChange={(event) => patch({ language: event.currentTarget.value as Preferences['language'] })}>
             {LOCALES.map((language) => <option key={language} value={language}>{({ en: 'English', vi: 'Tiếng Việt', ja: '日本語' })[language]}</option>)}</select></label>
-          <fieldset {...stylex.props(styles.fieldset)}>
-            <legend {...stylex.props(styles.qualityHeading)}>{t('settings.background')}</legend>
-            <div {...stylex.props(styles.qualityTabs, styles.resizeModes)}>
-              {(['gradient', 'solid'] as const).map((backgroundStyle) => <label key={backgroundStyle} {...stylex.props(styles.qualityTab, settings.backgroundStyle === backgroundStyle && styles.qualitySelected)}>
+          <div {...stylex.props(controls.row)}>
+            <span>{t('settings.background')}</span>
+            <div {...stylex.props(styles.qualityTabs, styles.backgroundTabs)} role="radiogroup" aria-label={t('settings.background')}>
+              {(['gradient', 'solid'] as const).map((backgroundStyle) => <label key={backgroundStyle} {...stylex.props(styles.qualityTab, styles.backgroundTab, settings.backgroundStyle === backgroundStyle && styles.qualitySelected)}>
                 <input {...stylex.props(styles.qualityInput)} type="radio" name="background-style" value={backgroundStyle} checked={settings.backgroundStyle === backgroundStyle} onChange={() => patch({ backgroundStyle })} />
                 <span>{t(`settings.background.${backgroundStyle}`)}</span>
               </label>)}
             </div>
-          </fieldset>
+          </div>
           <Toggle label={t('settings.glass')} checked={settings.glassEnabled} change={(glassEnabled) => patch({ glassEnabled })} />
           <label {...stylex.props(controls.row)}><span>{t('settings.glassOpacity')}</span><span {...stylex.props(styles.opacityControl)}>
             <input {...stylex.props(controls.focus, styles.opacityRange)} type="range" min="20" max="100" step="1" value={settings.glassOpacity} disabled={!settings.glassEnabled} aria-valuetext={`${settings.glassOpacity}%`} onChange={(event) => patch({ glassOpacity: Number(event.currentTarget.value) })} />
@@ -178,6 +178,10 @@ const styles = stylex.create({
   opacityControl: { display: 'flex', alignItems: 'center', gap: 8, width: 224 },
   opacityRange: { appearance: 'auto', accentColor: theme.accent, height: 28, minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0, margin: 0 },
   opacityValue: { width: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: '.8125rem', color: theme.secondary },
+  disabledText: { color: theme.disabledText },
+  pathLabel: { fontSize: '.8125rem', lineHeight: '18px', fontWeight: 400 },
+  backgroundTabs: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))', width: 224, height: 28 },
+  backgroundTab: { minHeight: 22, paddingBlock: 1, paddingInline: 8, borderRadius: 4, lineHeight: '18px' },
   pathGroup: { display: 'flex', flexDirection: 'column', gap: 8 },
   body: { display: 'flex', height: '100%', minHeight: 0 },
   sidebar: { display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, width: 156, paddingBlock: 16, paddingInline: 8, backgroundColor: theme.sidebar, borderRightWidth: 1, borderRightStyle: 'solid', borderRightColor: theme.separator, overflowY: 'auto' },
@@ -193,8 +197,8 @@ const styles = stylex.create({
   qualityTabs: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 2, padding: 2, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 6, backgroundColor: theme.segmentTrack },
   qualityTab: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingBlock: 4, paddingInline: 8, borderRadius: 5, color: theme.secondary, fontSize: '.75rem', fontWeight: 500, lineHeight: 1.35, textAlign: 'center', cursor: 'default', backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed }, outlineStyle: { default: 'none', ':focus-within': 'solid' }, outlineWidth: 3, outlineColor: theme.focus, outlineOffset: 1 },
   resizeModes: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))', minHeight: 32 }, qualitySelected: { color: theme.selectionText, backgroundColor: theme.selection, boxShadow: '0 1px 3px rgba(0,0,0,.12)' },
-  disabledSegment: { color: theme.secondary, cursor: 'default', boxShadow: 'none', backgroundColor: { default: theme.canvas, ':hover': theme.canvas, ':active': theme.canvas } },
-  disabledSelected: { backgroundColor: { default: theme.controlPressed, ':hover': theme.controlPressed, ':active': theme.controlPressed } },
+  disabledSegment: { color: theme.disabledText, cursor: 'default', boxShadow: 'none', backgroundColor: { default: 'transparent', ':hover': 'transparent', ':active': 'transparent' } },
+  disabledSelected: { color: theme.disabledText, boxShadow: 'none', backgroundColor: { default: theme.selection, ':hover': theme.selection, ':active': theme.selection } },
   qualityInput: { position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', margin: 0, cursor: 'default' },
   note: { fontSize: '.75rem', color: theme.secondary, lineHeight: 1.5, margin: 0 }, credentialStatus: { fontSize: '.75rem', color: theme.secondary, marginTop: 4, marginBottom: 0 },
   credentialField: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: { default: theme.text, ':has(:disabled)': theme.disabledText } }, credentialInput: { width: 224, maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },

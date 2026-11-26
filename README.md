@@ -1,4 +1,4 @@
-# tiny assets cho macOS
+# Tiny Assets cho macOS
 
 Nén ảnh trên máy bằng sharp/libvips, trong desktop app Electron. App viết bằng TypeScript 7, giao diện React + StyleX. Không dùng TinyPNG/Tinify API, không cần API key. S3 là tùy chọn và mặc định tắt. Thuật toán khác dịch vụ TinyPNG nên kết quả dung lượng/chất lượng có thể khác.
 
@@ -10,7 +10,7 @@ brew install --cask anhdd-kuro/tap/tiny-assets
 
 Nếu Homebrew yêu cầu trust cask từ tap cá nhân, chạy `brew trust --cask anhdd-kuro/tap/tiny-assets` rồi cài lại. Chỉ cần trust cask này; không cần trust toàn bộ tap.
 
-Cask phát hành cho Apple Silicon, macOS 13 trở lên. Source và release nằm tại [repo cá nhân](https://github.com/anhdd-kuro/tiny-png); tên hiển thị của app là **tiny assets**.
+Cask phát hành cho Apple Silicon, macOS 13 trở lên. Source và release nằm tại [repo cá nhân](https://github.com/anhdd-kuro/tiny-png); tên hiển thị của app là **Tiny Assets**.
 
 ## Chạy và build
 
@@ -30,11 +30,11 @@ pnpm build
 pnpm install:app
 ```
 
-`pnpm build` chạy typecheck và `pnpm lint`, compile main/preload và build renderer trước khi tạo `dist/tiny assets.app`. Bundle giữ sharp/libvips, chokidar và Koffi cùng native dependencies. Script kiểm tra các dependency này bằng runtime Electron đã đóng gói, ký ad-hoc và verify chữ ký. Bản local chưa có Developer ID/notarization cho phân phối công khai; không phải Universal Binary.
+`pnpm build` chạy typecheck và `pnpm lint`, compile main/preload và build renderer trước khi tạo `dist/Tiny Assets.app`. Bundle giữ sharp/libvips, chokidar và Koffi cùng native dependencies. Script kiểm tra các dependency này bằng runtime Electron đã đóng gói, ký ad-hoc và verify chữ ký. Bản local chưa có Developer ID/notarization cho phân phối công khai; không phải Universal Binary.
 
-`pnpm install:app` stage và kiểm tra chữ ký trước khi cập nhật `~/Applications/tiny assets.app`, rồi mở app. Chỉ dừng/thay các bundle có ID `dev.kuro.tinypng`; bản cũ `~/Applications/Tiny PNG.app` cùng ID được di chuyển trong transaction. Nếu cài hoặc khởi chạy lỗi, script khôi phục bundle cũ.
+`pnpm install:app` stage và kiểm tra chữ ký trước khi cập nhật `~/Applications/Tiny Assets.app`, rồi mở app. Chỉ dừng/thay các bundle có ID `dev.kuro.tinypng`; tên cũ `tiny assets.app` và `Tiny PNG.app` cùng ID được di chuyển trong transaction. Nếu cài hoặc khởi chạy lỗi, script khôi phục bundle cũ.
 
-Tên hiển thị đổi thành **tiny assets**, nhưng bundle ID và thư mục dữ liệu `~/Library/Application Support/Tiny PNG` được giữ nguyên để bảo toàn settings, watcher và encrypted credentials. Installer không xóa ảnh hoặc dữ liệu người dùng.
+Tên hiển thị đổi thành **Tiny Assets**, nhưng bundle ID và thư mục dữ liệu `~/Library/Application Support/Tiny PNG` được giữ nguyên để bảo toàn settings, watcher và encrypted credentials. Installer không xóa ảnh hoặc dữ liệu người dùng.
 
 Cài dependency/build lần đầu cần mạng; chức năng nén và UI chạy offline. Electron cache mặc định nằm trong thư mục tạm hệ thống, đổi bằng `ELECTRON_CACHE`. `pnpm-workspace.yaml` dùng `nodeLinker: hoisted` để packager thu thập dependency đầy đủ; store project `.pnpm-store/` được loại khỏi Git và app bundle.
 
@@ -58,7 +58,7 @@ Mức nén có ba lựa chọn: **Ưu tiên chất lượng · Cân bằng · Ư
 
 Thông báo hoàn tất dùng native macOS Notification trong main process, không dùng web permission. App gộp kết quả theo đợt và không đưa tên/path ảnh vào notification; có thể tắt trong Cài đặt. Quyền thông báo do macOS quản lý. Bản cài ký ad-hoc theo cùng cách với app AI Account Switcher được tham chiếu; khởi động lại máy không đổi chữ ký, nhưng một bản build mới có thể khiến macOS hỏi lại quyền.
 
-Đóng cửa sổ vẫn giữ app và watcher chạy ở menu bar; chọn **Thoát tiny assets** hoặc `⌘Q` để dừng. Không cài background service hoặc tự khởi động khi đăng nhập.
+Đóng cửa sổ vẫn giữ app và watcher chạy ở menu bar; chọn **Thoát Tiny Assets** hoặc `⌘Q` để dừng. Không cài background service hoặc tự khởi động khi đăng nhập.
 
 Watcher bỏ qua ảnh có sẵn lúc bắt đầu, nhận ảnh mới/thay đổi trong thư mục con và chờ file ghi ổn định trước khi nén. Watcher áp dụng cho mọi ảnh được hỗ trợ, không chỉ screenshot. Lựa chọn thư mục và trạng thái bật được lưu để tiếp tục ở lần chạy app sau; dùng **Dừng theo dõi** để tắt.
 
@@ -91,8 +91,8 @@ pnpm compress --resize fit --width 1200 --height 800 --format webp ./photos
 CLI trong bundle không cần Node cài riêng:
 
 ```bash
-ELECTRON_RUN_AS_NODE=1 "$HOME/Applications/tiny assets.app/Contents/MacOS/tiny assets" \
-  "$HOME/Applications/tiny assets.app/Contents/Resources/app/build/cli/index.cjs" --help
+ELECTRON_RUN_AS_NODE=1 "$HOME/Applications/Tiny Assets.app/Contents/MacOS/Tiny Assets" \
+  "$HOME/Applications/Tiny Assets.app/Contents/Resources/app/build/cli/index.cjs" --help
 ```
 
 `--overwrite` thay file gốc; CLI kế thừa overwrite từ GUI nên dùng `--no-overwrite` khi cần giữ nguồn. Hỗ trợ `--language en|vi|ja`, `--quality`, `--output`, `--webp`, `--no-resize`, nhiều `--file` và `--` trước đường dẫn bắt đầu bằng dấu gạch ngang. Exit code: 0 thành công, 1 có lỗi xử lý/không có ảnh, 2 sai đối số.

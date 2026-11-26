@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const source = path.join(root, 'dist', `${APP_NAME}.app`);
 const applications = path.join(os.homedir(), 'Applications');
 const target = path.join(applications, `${APP_NAME}.app`);
-const legacy = path.join(applications, 'Tiny PNG.app');
+const legacy = ['tiny assets.app', 'Tiny PNG.app'].map(name => path.join(applications, name));
 const logPath = path.join(os.tmpdir(), `${APP_NAME.replace(/\s+/g, '-')}-startup.log`);
 
 function run(command: string, args: string[]): string {
@@ -75,12 +75,25 @@ async function main(): Promise<void> {
   if (bundleValue(source, 'CFBundleIdentifier') !== APP_ID) throw new Error('Built app has an unexpected bundle identifier.');
   await fs.mkdir(applications, { recursive: true });
   const candidates: { bundle: string; pids: number[] }[] = [];
-  if (await exists(target)) {
-    if (bundleValue(target, 'CFBundleIdentifier') !== APP_ID) throw new Error('Another app already uses this installation path.');
-    candidates.push({ bundle: target, pids: processIds(bundleExecutable(target)) });
-  }
-  if (legacy !== target && await exists(legacy)) {
-    if (bundleValue(legacy, 'CFBundleIdentifier') === APP_ID) candidates.push({ bundle: legacy, pids: processIds(bundleExecutable(legacy)) });
+  const canonicalPaths = new Set<string>();
+  const identities = new Set<string>();
+  for (const candidate of [target, ...legacy]) {
+    if (!await exists(candidate)) continue;
+    const stat = await fs.lstat(candidate, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      if (candidate === target) throw new Error('The installation path is not a regular app bundle.');
+      continue;
+    }
+    if (bundleValue(candidate, 'CFBundleIdentifier') !== APP_ID) {
+      if (candidate === target) throw new Error('Another app already uses this installation path.');
+      continue;
+    }
+    const bundle = await fs.realpath(candidate);
+    const identity = `${stat.dev}:${stat.ino}`;
+    if (canonicalPaths.has(bundle) || identities.has(identity)) continue;
+    canonicalPaths.add(bundle);
+    identities.add(identity);
+    candidates.push({ bundle, pids: processIds(bundleExecutable(bundle)) });
   }
   const staging = await fs.mkdtemp(path.join(applications, '.tiny-assets-install-'));
   const next = path.join(staging, `${APP_NAME}.app`);

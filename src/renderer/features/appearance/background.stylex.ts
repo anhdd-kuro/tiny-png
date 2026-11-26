@@ -9,6 +9,8 @@ export function backgroundPaint(settings: BackgroundSettings | undefined, hud = 
     image: settings?.backgroundStyle === 'solid' ? 'none' : `linear-gradient(35deg,rgba(55,110,184,${alpha}) 0%,rgba(57,145,172,${alpha}) 48%,rgba(64,174,142,${alpha}) 100%)`,
     color: settings?.backgroundStyle === 'solid' ? `rgba(32,85,106,${alpha})` : 'transparent',
     hudAlpha: alpha,
+    chromeAlpha: .35 + .47 * (1 - requested) / .8,
+    surfaceAlpha: .35 + .53 * (1 - requested) / .8,
   };
 }
 

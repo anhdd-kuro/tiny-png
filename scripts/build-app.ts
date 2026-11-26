@@ -18,7 +18,7 @@ function run(command: string, args: string[], env = process.env): void {
 
 async function buildIcon(): Promise<string> {
   const source = path.join(root, 'src/renderer/assets/dino.png');
-  if (!await fs.access(source).then(() => true, () => false)) throw new Error('Thiếu artwork dino.png cho tiny assets.');
+  if (!await fs.access(source).then(() => true, () => false)) throw new Error(`Thiếu artwork dino.png cho ${APP_NAME}.`);
   const representations = [
     ['icp4', 16], ['ic11', 32], ['icp5', 32], ['ic12', 64], ['ic07', 128],
     ['ic13', 256], ['ic08', 256], ['ic14', 512], ['ic09', 512], ['ic10', 1024],

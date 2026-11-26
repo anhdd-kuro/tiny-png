@@ -7,6 +7,7 @@ import { build } from 'esbuild';
 import sharp from 'sharp';
 import { _electron as electron, type Page } from 'playwright';
 import { DEFAULT_SETTINGS } from '../src/main/features/settings/store';
+import { APP_NAME } from '../src/shared/app';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const qaRoot = path.join(root, 'tmp/ui-qa');
@@ -46,7 +47,7 @@ async function waitForState(page: Page, predicate: (state: Awaited<ReturnType<Wi
 }
 try {
   const main = await findWindow('/renderer/index.html');
-  await main.getByRole('heading', { name: 'tiny assets', exact: true }).waitFor();
+  await main.getByRole('heading', { name: APP_NAME, exact: true }).waitFor();
   await main.waitForFunction(() => !!window.tinyPNG);
   const state = await main.evaluate(() => window.tinyPNG.getState());
   if (state.settings.s3Enabled || state.settings.watchEnabled) throw new Error('QA profile must stay local and isolated.');

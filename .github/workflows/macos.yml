@@ -28,7 +28,7 @@ jobs:
       - name: Build and sign local app
         run: pnpm build
       - name: Archive app
-        run: ditto -c -k --sequesterRsrc --keepParent "dist/tiny assets.app" "dist/tiny-assets-macOS.zip"
+        run: ditto -c -k --sequesterRsrc --keepParent "dist/Tiny Assets.app" "dist/tiny-assets-macOS.zip"
       - name: Upload macOS app
         uses: actions/upload-artifact@v7.0.2
         with:

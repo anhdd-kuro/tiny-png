@@ -1,6 +1,6 @@
 {
   "name": "tiny-assets-desktop",
-  "productName": "tiny assets",
+  "productName": "Tiny Assets",
   "version": "0.1.2",
   "description": "Offline image compression with a floating drop zone and screenshot folder watching",
   "main": "build/main/index.cjs",

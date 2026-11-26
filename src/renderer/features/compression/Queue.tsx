@@ -66,13 +66,13 @@ export function Queue({ state, run, t }: QueueProps) {
   </>;
 }
 
-export function QueueFooter({ state, run, t, glass = false }: QueueProps & { glass?: boolean }) {
+export function QueueFooter({ state, run, t, glass = false, chromeAlpha = .35 }: QueueProps & { glass?: boolean; chromeAlpha?: number }) {
   const summary = stats(state.jobs);
   const hasCompleted = summary.completed.length > 0;
   const primary = state.jobs.some((job) => job.state === 'processing' && job.phase === 'uploading') ? t('s3.uploading') : hasCompleted ? t('queue.saved', { size: bytes(summary.saved, state.settings.language) }) : state.isProcessing ? t('app.processing') : summary.failed ? t('app.errorCount', { count: summary.failed }) : t('queue.ready');
   const button = state.isProcessing ? t(state.paused ? 'queue.pausing' : 'queue.pause') : summary.pending ? t('queue.compress', { count: summary.pending }) : '';
   if (!state.jobs.length) return null;
-  return <footer {...stylex.props(styles.footer, glass && styles.glassChrome)}>
+  return <footer {...stylex.props(styles.footer, glass && styles.glassChrome(`rgba(12,12,12,${chromeAlpha})`))}>
     <div {...stylex.props(styles.summary)}><strong {...stylex.props(styles.summaryTitle)}>{primary}</strong>
       {state.settings.overwrite && <span {...stylex.props(styles.overwrite)}><Icon name="warning" size={14} />{t('settings.overwriteWarning')}</span>}
       {hasCompleted && <span {...stylex.props(styles.summaryMeta)}>{t('queue.completed', { count: summary.completed.length, percent: formatReduction(summary.original, summary.original - summary.saved, state.settings.language) })}</span>}</div>
@@ -95,7 +95,7 @@ const styles = stylex.create({
   s3: { fontSize: '.6875rem', color: theme.secondary, fontWeight: 500, flexShrink: 0 }, rowActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }, action: { width: 28, height: 28 },
   state: { fontSize: '.75rem', color: theme.secondary }, spinner: { width: 14, height: 14, borderWidth: 1.5, borderStyle: 'solid', borderColor: theme.border, borderTopColor: theme.secondary, borderRadius: '50%', animationName: { default: spin, '@media (prefers-reduced-motion: reduce)': 'none' }, animationDuration: '.8s', animationTimingFunction: 'linear', animationIterationCount: 'infinite' },
   footer: { display: 'flex', alignItems: 'center', gap: 16, minHeight: 56, paddingBlock: 8, paddingInline: 20, backgroundColor: theme.toolbar, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: theme.separator, flexShrink: 0 },
-  glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.12)', backgroundColor: { default: 'rgba(5,35,41,.82)', '@media (prefers-reduced-transparency: reduce)': '#316d87', '@media (prefers-contrast: more)': '#20556a' }, backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
+  glassChrome: (color: string) => ({ boxShadow: 'inset 0 1px rgba(255,255,255,.12)', backgroundColor: { default: color, '@media (prefers-reduced-transparency: reduce)': '#316d87', '@media (prefers-contrast: more)': '#20556a' }, backdropFilter: { default: 'blur(24px)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } }),
   overwrite: { display: 'flex', alignItems: 'center', gap: 8, color: theme.danger, fontSize: '.75rem', lineHeight: '16px' },
   summary: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }, summaryTitle: { fontSize: '.8125rem', fontWeight: 550 }, summaryMeta: { fontSize: '.75rem', color: theme.secondary },
   primary: { marginLeft: 'auto', paddingBlock: 4, paddingInline: 12, fontWeight: 550, minHeight: 28, whiteSpace: 'nowrap', color: theme.primaryText, borderColor: 'transparent', backgroundColor: { default: theme.accent, ':hover': theme.accentHover, ':active': theme.accentPressed } },

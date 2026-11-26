@@ -1,8 +1,8 @@
-# tiny assets cho macOS
+# Tiny Assets cho macOS
 
 ## Kiến trúc và stack hiện tại
 
-- Tên sản phẩm chính xác là `tiny assets`; dùng `src/shared/app.ts` cho tên và bundle ID. Giữ `APP_ID=dev.kuro.tinypng` và `DATA_DIRECTORY=Tiny PNG` khi đổi branding để bảo toàn dữ liệu. Desktop app Electron nén ảnh **offline bằng sharp/libvips**. Không dùng Tinify API, không cần key. S3 là tùy chọn được người dùng yêu cầu; mặc định tắt và chỉ upload trực tiếp lên AWS khi được bật.
+- Tên sản phẩm chính xác là `Tiny Assets`; dùng `src/shared/app.ts` cho tên và bundle ID. Giữ `APP_ID=dev.kuro.tinypng` và `DATA_DIRECTORY=Tiny PNG` khi đổi branding để bảo toàn dữ liệu. Desktop app Electron nén ảnh **offline bằng sharp/libvips**. Không dùng Tinify API, không cần key. S3 là tùy chọn được người dùng yêu cầu; mặc định tắt và chỉ upload trực tiếp lên AWS khi được bật.
 - Toàn bộ application/build/test code viết bằng TypeScript 7 stable; renderer dùng React TSX + StyleX. Không thêm source JavaScript/CommonJS hoặc Swift helper. CJS chỉ là output build cho Electron main/preload và nằm trong `build/` đã ignore. CSS thuần chỉ dành cho global reset.
 - Gradient xanh dương–xanh lá theo tinyPNG.App là nền mặc định; người dùng có thể chọn nền màu đơn. Giữ đầu khủng long riêng của sản phẩm. Glass là opt-in, mặc định tắt; có thanh kéo opacity của nền, giữ chữ và control rõ, dùng native macOS vibrancy qua Electron, không gọi là Liquid Glass. Settings là cửa sổ macOS riêng, có light/dark theo hệ thống. Tôn trọng Reduce Transparency, Increase Contrast và Reduce Motion bằng nền đặc/tắt blur, tương phản rõ và phản hồi tĩnh. Không thay phong cách thương hiệu khi chỉ sửa lỗi render.
 - Tooling dùng Node 26 LTS và pnpm theo version pin tại `.node-version`, `.nvmrc`, `package.json` và `pnpm-lock.yaml`; giữ `nodeLinker: hoisted` trong `pnpm-workspace.yaml` để đóng gói native dependencies đúng. Main/preload phải target runtime Node nhúng trong Electron (hiện 24.22.3), không nhầm với Node build/test trên máy.
