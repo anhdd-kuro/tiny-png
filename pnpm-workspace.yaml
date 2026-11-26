@@ -1,0 +1,10 @@
+nodeLinker: hoisted
+storeDir: .pnpm-store
+saveExact: true
+engineStrict: true
+verifyDepsBeforeRun: false
+allowBuilds:
+  electron: true
+  esbuild: true
+  koffi: true
+  sharp: true

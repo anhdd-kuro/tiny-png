@@ -12,3 +12,6 @@ xcuserdata/
 node_modules/
 *.log
 coverage/
+build/
+tmp/
+.pnpm-store/

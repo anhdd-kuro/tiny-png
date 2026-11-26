@@ -1,21 +1,51 @@
 {
-  "name": "tiny-png-desktop",
-  "productName": "Tiny PNG",
+  "name": "tiny-assets-desktop",
+  "productName": "tiny assets",
   "version": "0.1.0",
   "description": "Offline image compression with a floating drop zone and screenshot folder watching",
-  "main": "src/main.cjs",
+  "main": "build/main/index.cjs",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "test": "node --test test/*.test.cjs",
-    "build": "node scripts/build-app.cjs"
+    "start": "pnpm build:source && electron .",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config src/renderer",
+    "test": "node --import tsx --test src/main/features/*/*.test.ts src/cli/*.test.ts",
+    "build:source": "node --import tsx scripts/build.ts",
+    "build": "pnpm typecheck && pnpm lint && node --import tsx scripts/build-app.ts",
+    "test:native": "node --import tsx --test src/main/features/corner-drop/drag-monitor.native.integration.ts",
+    "compress": "node --import tsx src/cli/index.ts",
+    "install:app": "node --import tsx scripts/install-app.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1177.0",
+    "@stylexjs/stylex": "0.19.2",
     "chokidar": "6.0.0",
+    "koffi": "3.3.8",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "sharp": "0.35.5"
   },
   "devDependencies": {
+    "@babel/core": "8.1.3",
+    "@babel/eslint-parser": "8.1.2",
     "@electron/packager": "20.3.0",
-    "electron": "45.5.0"
+    "@stylexjs/eslint-plugin": "0.19.2",
+    "@stylexjs/unplugin": "0.19.2",
+    "@types/node": "26.6.11",
+    "@types/react": "19.3.3",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "electron": "45.5.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.15.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  },
+  "type": "module",
+  "packageManager": "pnpm@12.23.0",
+  "engines": {
+    "node": "26.13.1",
+    "pnpm": "12.23.0"
   }
 }
