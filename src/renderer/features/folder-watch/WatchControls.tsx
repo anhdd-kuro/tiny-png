@@ -13,6 +13,7 @@ export function WatchControls({ state, run, t }: Props) {
   return <section {...stylex.props(controls.section)}>
     <div {...stylex.props(controls.row)}><h3 {...stylex.props(controls.heading)}>{t('watch.heading')}</h3>
       <button type="button" {...stylex.props(controls.focus, controls.button)} onClick={() => void run(() => state.watchRunning ? window.tinyPNG.stopWatch() : window.tinyPNG.startWatch())}>{t(state.watchRunning ? 'watch.stop' : 'watch.start')}</button></div>
+    <p {...stylex.props(styles.note)} role="status">{t(state.watchRunning ? 'watch.active' : 'watch.inactive')}</p>
     <div {...stylex.props(styles.pathGroup)} role="group" aria-label={t('watch.heading')}><div {...stylex.props(controls.pathRow)}><span {...stylex.props(controls.path)} title={state.settings.watchPath ?? ''}>{state.settings.watchPath || t('watch.unselected')}</span>
       <button type="button" {...stylex.props(controls.focus, controls.button)} aria-label={t('watch.chooseFolder')} onClick={() => void run(() => window.tinyPNG.chooseWatchFolder())}>{t('common.choose')}</button></div></div>
     <p {...stylex.props(styles.note)}>{t('watch.note')}</p>

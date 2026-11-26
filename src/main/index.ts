@@ -13,11 +13,13 @@ import { CornerWindow } from './features/corner-drop/window';
 import { translations } from '../shared/locales';
 import { createTranslator } from '../shared/localization';
 import { IPC } from '../shared/contracts';
-import type { AppState, CompressionResult, BatchSummary, SettingsCategory } from '../shared/contracts';
+import type { AppState, CompressionResult, BatchSummary, SettingsCategory, Job } from '../shared/contracts';
 import { CredentialStore } from './platform/credential-store';
 import { S3Service } from './features/s3/service';
 import type { S3Credentials } from '../shared/contracts';
 import { APP_NAME, APP_ID, DATA_DIRECTORY } from '../shared/app';
+import { HistoryStore } from './features/history/store';
+import { NotificationDelivery } from './features/notifications/delivery';
 import { CompletionNotifier } from './features/notifications/completion';
 import { applyWindowMaterial } from './features/appearance/material';
 
@@ -38,7 +40,8 @@ let currentNotice: unknown = null;
 let credentials: CredentialStore;
 let hasS3Credentials = false;
 let completion: CompletionNotifier;
-const nativeNotifications = new Set<Notification>();
+let history: HistoryStore;
+let notificationDelivery: NotificationDelivery;
 const translators = { en: createTranslator('en'), vi: createTranslator('vi'), ja: createTranslator('ja') };
 
 function text(key: string, values: Record<string, string | number> = {}): string {
@@ -48,10 +51,14 @@ function errorText(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return translations[settings?.value.language ?? 'vi'][message] ?? `${text('error.operationFailed')}: ${message}`;
 }
+function safeHistoryError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return Object.hasOwn(translations.en, message) ? message : 'error.operationFailed';
+}
 function snapshot(): AppState {
   const progress = queue.snapshot();
   return { ...progress, jobs: progress.jobs.map(job => ({ ...job, error: job.error ? errorText(job.error) : null })),
-    settings: settings.value, watchRunning: watch.running, notice: currentNotice === null ? null : errorText(currentNotice), translations: translations[settings.value.language], hasS3Credentials };
+    history: history.entries, settings: settings.value, watchRunning: watch.running, notice: currentNotice === null ? null : errorText(currentNotice), translations: translations[settings.value.language], hasS3Credentials };
 }
 function broadcast(): void {
   if (!queue || !settings || !watch) return;
@@ -130,13 +137,23 @@ function registerIPC(): void {
   });
   handle(IPC.getState, snapshot);
   handle(IPC.openSettings, category => {
-    if (category !== undefined && category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud') throw new Error('error.invalidSettings');
+    if (category !== undefined && category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud' && category !== 'history') throw new Error('error.invalidSettings');
     openSettings(category);
   });
   handle(IPC.settingsCategory, category => {
-    if (category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud') throw new Error('error.invalidSettings');
+    if (category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud' && category !== 'history') throw new Error('error.invalidSettings');
     settingsWindow.setCategory(category);
   }, true);
+  handle(IPC.clearHistory, async () => {
+    const result = await dialog.showMessageBox(dialogParent(), { type: 'warning', title: text('history.clearAction'), message: text('history.clearConfirm'),
+      buttons: [text('history.clearAction'), text('common.cancel')], defaultId: 1, cancelId: 1 });
+    if (result.response === 0) { history.clear(); broadcast(); }
+  }, true);
+  handle(IPC.testNotification, () => {
+    if (!settings.value.notificationsEnabled) return;
+    notificationDelivery.show({ title: text('notifications.testTitle'), body: text('notifications.testBody'), onClick: () => openSettings('history') });
+  }, true);
+  handle(IPC.openNotificationSettings, () => shell.openExternal('x-apple.systempreferences:com.apple.Notifications-Settings.extension'), true);
   handle(IPC.chooseFiles, chooseFiles);
   handle(IPC.enqueue, input => {
     if (!Array.isArray(input) || input.length > 5000 || !input.every((file: unknown) => typeof file === 'string' && path.isAbsolute(file))) throw new Error('error.invalidPath');
@@ -152,7 +169,7 @@ function registerIPC(): void {
   handle(IPC.updateSettings, async patch => {
     const previousGlass = settings.value.glassEnabled;
     if (!await settingsUpdater.update(patch)) return snapshot();
-    if (!settings.value.notificationsEnabled) completion.cancelPending();
+    if (!settings.value.notificationsEnabled && completion.cancelPending()) history.add({ action: 'notificationSuppressed', file: null });
     if (previousGlass !== settings.value.glassEnabled) applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     settingsWindow.updateAppearance();
     corner.update(settings.value); updateMenus(); broadcast(); return snapshot();
@@ -193,20 +210,22 @@ else {
   });
   app.whenReady().then(async () => {
     settings = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
+    history = new HistoryStore(path.join(app.getPath('userData'), 'history.json'), { onError: error => { currentNotice = error; } });
     credentials = new CredentialStore(path.join(app.getPath('userData'), 's3-credentials.bin'), safeStorage);
     try { hasS3Credentials = credentials.hasCredentials(); }
     catch (error) { currentNotice = error; }
     const s3 = new S3Service({ getOptions: () => ({ enabled: settings.value.s3Enabled, region: settings.value.s3Region, bucket: settings.value.s3Bucket, prefix: settings.value.s3Prefix }),
       getCredentials: () => credentials.read() });
     queue = new CompressionQueue(settings, s3);
-    watch = new FolderWatchController({ settings, queue, onChange: () => { updateMenus(); broadcast(); }, onError: notice });
+    watch = new FolderWatchController({ settings, queue, onChange: () => { updateMenus(); broadcast(); }, onError: notice,
+      onActivity: (action, file, error) => { history.add({ action, file, ...(error ? { error: safeHistoryError(error) } : {}) }); broadcast(); } });
     const build = path.resolve(__dirname, '..');
     const preload = path.join(build, 'preload/index.cjs');
     mainWindow = createAppWindow({ preload, html: path.join(build, 'renderer/index.html'), isQuitting: () => quitting });
     applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     corner = new CornerWindow({ preload, html: path.join(build, 'renderer/features/corner-drop/index.html'), anchorWindow: mainWindow, onError: notice });
     settingsWindow = new SettingsWindow({ preload, html: path.join(build, 'renderer/features/settings/index.html'),
-      title: category => `${text(category === 'cloud' ? 's3.heading' : `settings.${category}`)} — ${APP_NAME}`, glassEnabled: () => settings.value.glassEnabled,
+      title: category => `${text(category === 'cloud' ? 's3.heading' : category === 'history' ? 'history.heading' : `settings.${category}`)} — ${APP_NAME}`, glassEnabled: () => settings.value.glassEnabled,
       isQuitting: () => quitting, onError: notice });
     settingsUpdater = new SettingsUpdater(settings, async () => {
       const result = await dialog.showMessageBox(dialogParent(), { type: 'warning', title: text('settings.overwriteAction'),
@@ -214,22 +233,32 @@ else {
       return result.response === 0;
     });
     tray = createTray();
+    notificationDelivery = new NotificationDelivery({
+      create: content => {
+        if (!Notification.isSupported()) throw new Error('notifications.unavailable');
+        return new Notification({ title: content.title, body: content.body, groupId: APP_ID });
+      },
+      record: (action, error) => { history.add({ action, file: null, ...(error ? { error } : {}) }); broadcast(); },
+      onError: notice,
+    });
     completion = new CompletionNotifier({ isEnabled: () => settings.value.notificationsEnabled, translate: text, openResults: openMain,
-      show: content => {
-        try {
-          if (!Notification.isSupported()) throw new Error('notifications.unavailable');
-          const notification = new Notification({ title: content.title, body: content.body, groupId: APP_ID });
-          nativeNotifications.add(notification);
-          notification.on('click', content.onClick);
-          notification.on('close', () => nativeNotifications.delete(notification));
-          notification.on('failed', () => { nativeNotifications.delete(notification); notice(new Error('notifications.unavailable')); });
-          notification.show();
-        } catch { notice(new Error('notifications.unavailable')); }
-      } });
+      show: content => notificationDelivery.show(content) });
     tray.on('double-click', openMain);
     queue.on('change', broadcast);
-    queue.on('output', (result: CompressionResult) => watch.markOutput(result));
-    queue.on('drained', (summary: BatchSummary) => completion.complete(summary));
+    queue.on('accepted', (file: string, origin: 'manual' | 'watch') => history.add({ action: origin === 'watch' ? 'watchDetected' : 'detected', file }));
+    queue.on('output', (result: CompressionResult) => {
+      watch.markOutput(result);
+      history.add({ action: result.skipped ? 'skipped' : 'compressed', file: result.source, outputPath: result.outputPath,
+        originalBytes: result.originalBytes, outputBytes: result.outputBytes });
+    });
+    queue.on('settled', (job: Job) => {
+      if (job.state === 'failed') history.add({ action: job.phase === 'uploading' ? 'uploadFailed' : 'failed', file: job.source, error: safeHistoryError(job.error) });
+      else if (job.result?.remoteLocation) history.add({ action: 'uploaded', file: job.source, outputPath: job.result.outputPath });
+    });
+    queue.on('drained', (summary: BatchSummary) => {
+      if (!settings.value.notificationsEnabled) history.add({ action: 'notificationSuppressed', file: null });
+      completion.complete(summary); broadcast();
+    });
     session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
     registerIPC(); updateMenus(); corner.update(settings.value);
     screen.on('display-metrics-changed', () => corner.refresh());
@@ -239,7 +268,7 @@ else {
     if (settings.value.watchEnabled && settings.value.watchPath) await watch.start().catch(notice);
   }).catch(error => { dialog.showErrorBox(APP_NAME, errorText(error)); app.quit(); });
   app.on('window-all-closed', () => {});
-  app.on('before-quit', () => { quitting = true; completion?.dispose(); settingsWindow?.dispose(); corner?.dispose(); if (watch) perform(() => watch.stop({ persist: false })); });
+  app.on('before-quit', () => { quitting = true; completion?.dispose(); notificationDelivery?.dispose(); settingsWindow?.dispose(); corner?.dispose(); if (watch) perform(() => watch.stop({ persist: false })); });
   process.on('SIGTERM', () => app.quit());
   process.on('SIGINT', () => app.quit());
   app.on('open-file', (event, file) => { event.preventDefault(); perform(() => app.whenReady().then(() => queue.enqueue([file]))); });

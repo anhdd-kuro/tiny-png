@@ -2,7 +2,18 @@ export type Language = 'en' | 'vi' | 'ja';
 export type DropCorner = 'topRight' | 'topLeft' | 'bottomRight' | 'bottomLeft' | 'topCenter';
 export type ResizeMethod = 'fit' | 'cover' | 'scale' | 'thumb';
 export type OutputFormat = 'original' | 'png' | 'jpeg' | 'webp' | 'avif';
-export type SettingsCategory = 'images' | 'automation' | 'general' | 'cloud';
+export type SettingsCategory = 'images' | 'automation' | 'general' | 'cloud' | 'history';
+export type HistoryAction = 'detected' | 'watchDetected' | 'compressed' | 'skipped' | 'failed' | 'uploaded' | 'uploadFailed' | 'watchStarted' | 'watchStopped' | 'watchFailed' | 'notificationRequested' | 'notificationSent' | 'notificationFailed' | 'notificationSuppressed' | 'notificationUnconfirmed';
+export interface HistoryEntry {
+  id: string;
+  timestamp: string;
+  file: string | null;
+  action: HistoryAction;
+  outputPath?: string;
+  originalBytes?: number;
+  outputBytes?: number;
+  error?: string;
+}
 
 export interface CompressionOptions {
   quality: number;
@@ -58,6 +69,7 @@ export interface Job {
   phase?: 'compressing' | 'uploading';
 }
 export interface AppState {
+  history: HistoryEntry[];
   jobs: Job[];
   settings: Settings;
   isProcessing: boolean;
@@ -90,6 +102,9 @@ export interface TinyPNG {
   openMain(): Promise<void>;
   dismissNotice(): Promise<void>;
   saveS3Credentials(credentials: S3Credentials): Promise<AppState>;
+  clearHistory(): Promise<void>;
+  testNotification(): Promise<void>;
+  openNotificationSettings(): Promise<void>;
 }
 export const IPC = {
   getState: 'get-state', state: 'state', openSettings: 'open-settings', chooseFiles: 'choose-files', enqueue: 'enqueue',
@@ -99,4 +114,7 @@ export const IPC = {
   saveS3Credentials: 'save-s3-credentials',
   settingsReady: 'settings-ready',
   settingsCategory: 'settings-category',
+  clearHistory: 'clear-history',
+  testNotification: 'test-notification',
+  openNotificationSettings: 'open-notification-settings',
 } as const;

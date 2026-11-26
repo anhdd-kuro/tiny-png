@@ -20,6 +20,9 @@ const api: TinyPNG = {
   pause: () => ipcRenderer.invoke(IPC.pause), resume: () => ipcRenderer.invoke(IPC.resume), retry: id => ipcRenderer.invoke(IPC.retry, id),
   remove: id => ipcRenderer.invoke(IPC.remove, id), clearFinished: () => ipcRenderer.invoke(IPC.clear), reveal: file => ipcRenderer.invoke(IPC.reveal, file),
   openMain: () => ipcRenderer.invoke(IPC.openMain), dismissNotice: () => ipcRenderer.invoke(IPC.dismissNotice),
+  clearHistory: () => ipcRenderer.invoke(IPC.clearHistory),
+  testNotification: () => ipcRenderer.invoke(IPC.testNotification),
+  openNotificationSettings: () => ipcRenderer.invoke(IPC.openNotificationSettings),
   saveS3Credentials: credentials => ipcRenderer.invoke(IPC.saveS3Credentials, credentials),
 };
 contextBridge.exposeInMainWorld('tinyPNG', api);

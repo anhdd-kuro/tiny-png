@@ -62,7 +62,8 @@ test('dispose and settings cancellation prevent stale notices', t => {
   const notifier = new CompletionNotifier({ isEnabled: () => true,
     translate: key => key, show: content => { notices.push(content); }, openResults() {} });
   notifier.complete({ completed: 1, failed: 0, savedBytes: 10 });
-  notifier.cancelPending();
+  assert.equal(notifier.cancelPending(), true);
+  assert.equal(notifier.cancelPending(), false);
   t.mock.timers.tick(400);
   notifier.complete({ completed: 2, failed: 0, savedBytes: 20 });
   notifier.dispose();

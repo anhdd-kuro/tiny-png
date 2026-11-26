@@ -1,4 +1,4 @@
-type IconName = 'photo' | 'folder' | 'retry' | 'close' | 'settings' | 'automation' | 'general' | 'cloud' | 'check' | 'plus' | 'warning';
+type IconName = 'photo' | 'folder' | 'retry' | 'close' | 'settings' | 'automation' | 'general' | 'cloud' | 'check' | 'plus' | 'warning' | 'history';
 const paths: Record<IconName, string> = {
   photo: 'M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4M15 8h.01',
   folder: 'M3 7V5h6l2 2h10v12H3z',
@@ -11,6 +11,7 @@ const paths: Record<IconName, string> = {
   plus: 'M12 5v14M5 12h14',
   warning: 'M12 3 2 21h20L12 3ZM12 9v5M12 17h.01',
   check: 'm5 12 4 4L19 6',
+  history: 'M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2',
 };
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {

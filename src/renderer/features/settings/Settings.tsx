@@ -5,6 +5,7 @@ import { LOCALES } from '../../../shared/locales';
 import type { ActionRunner } from '../application/useAppState';
 import type { Translator } from '../../../shared/localization';
 import { WatchControls } from '../folder-watch/WatchControls';
+import { History } from '../history/History';
 import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
 import { Icon } from '../../lib/Icon';
@@ -92,11 +93,18 @@ const categories = [
   { id: 'automation', label: 'settings.automation', icon: 'automation' },
   { id: 'general', label: 'settings.general', icon: 'general' },
   { id: 'cloud', label: 's3.heading', icon: 'cloud' },
+  { id: 'history', label: 'history.heading', icon: 'history' },
 ] as const;
 
 export function Settings({ state, category, setCategory, run, t }: Props) {
+  const [testingNotification, setTestingNotification] = useState(false);
   const settings = state.settings;
   const patch = (value: SettingsPatch) => void run(() => window.tinyPNG.updateSettings(value));
+  const testNotification = () => void run(async () => {
+    setTestingNotification(true);
+    try { await window.tinyPNG.testNotification(); }
+    finally { setTestingNotification(false); }
+  });
   return <main {...stylex.props(styles.window, settings.glassEnabled && styles.glass)}>
     <div {...stylex.props(styles.body)}>
       <nav {...stylex.props(styles.sidebar, settings.glassEnabled && styles.glassSidebar(`light-dark(rgba(237,237,240,${settings.glassOpacity / 100}),rgba(36,36,39,${settings.glassOpacity / 100}))`))} aria-label={t('settings.heading')}>
@@ -137,7 +145,13 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
           </fieldset>
         </>}
         {category === 'automation' && <>
-          <section {...stylex.props(controls.section)}><Toggle label={t('notifications.enabled')} checked={settings.notificationsEnabled} change={(notificationsEnabled) => patch({ notificationsEnabled })} /></section>
+          <section {...stylex.props(controls.section)}>
+            <Toggle label={t('notifications.enabled')} checked={settings.notificationsEnabled} change={(notificationsEnabled) => patch({ notificationsEnabled })} />
+            <div {...stylex.props(styles.notificationActions)}>
+              <button type="button" {...stylex.props(controls.focus, controls.button)} onClick={() => void run(() => window.tinyPNG.openNotificationSettings())}>{t('notifications.openSettings')}</button>
+              <button type="button" {...stylex.props(controls.focus, controls.button)} disabled={!settings.notificationsEnabled || testingNotification} aria-busy={testingNotification} onClick={testNotification}>{t(testingNotification ? 'notifications.testing' : 'notifications.test')}</button>
+            </div>
+          </section>
           <WatchControls state={state} run={run} t={t} />
           <section {...stylex.props(controls.section)}><h4 {...stylex.props(controls.heading)}>{t('corner.heading')}</h4>
             <Toggle label={t('corner.enabled')} checked={settings.cornerEnabled} change={(cornerEnabled) => patch({ cornerEnabled })} />
@@ -166,6 +180,7 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
           </span></label>
         </section>}
         {category === 'cloud' && <S3Settings state={state} run={run} t={t} />}
+        {category === 'history' && <History entries={state.history} language={settings.language} run={run} t={t} />}
       </div>
     </div>
   </main>;
@@ -201,5 +216,6 @@ const styles = stylex.create({
   disabledSelected: { color: theme.disabledText, boxShadow: 'none', backgroundColor: { default: theme.disabledSelection, ':hover': theme.disabledSelection, ':active': theme.disabledSelection } },
   qualityInput: { position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', margin: 0, cursor: 'default' },
   note: { fontSize: '.75rem', color: theme.secondary, lineHeight: 1.5, margin: 0 }, credentialStatus: { fontSize: '.75rem', color: theme.secondary, marginTop: 4, marginBottom: 0 },
+  notificationActions: { display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   credentialField: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: { default: theme.text, ':has(:disabled)': theme.disabledText } }, credentialInput: { width: 224, maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },
 });

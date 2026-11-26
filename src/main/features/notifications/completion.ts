@@ -49,10 +49,12 @@ export class CompletionNotifier {
     }, 400);
   }
 
-  cancelPending(): void {
+  cancelPending(): boolean {
+    const cancelled = this.pending !== null;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
     this.pending = null;
+    return cancelled;
   }
 
   dispose(): void { this.disposed = true; this.cancelPending(); }

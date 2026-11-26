@@ -19,6 +19,7 @@ Các pattern trên là nghiên cứu workflow từ nguồn chính thức, **khô
 - Một nhịp spacing 8 px, margin ngoài thống nhất; toolbar khoảng 52 px, control thường khoảng 28 px, body 13 px, queue row khoảng 44 px. Sidebar Cài đặt có khoảng cách 6 px giữa các mục theo yêu cầu người dùng. Đây là mục tiêu thiết kế của project, không phải mọi con số đều là yêu cầu bắt buộc của Apple.
 - Empty state có vùng thả rõ; khi có ảnh, queue thay vùng thả. Vùng nội dung vẫn nhận thêm ảnh kéo thả, nút + trên toolbar và `⌘O` mở file picker. Giữ vị trí cột dung lượng/kết quả ổn định và cho tên file dài truncate có tooltip.
 - Settings là cửa sổ hệ thống riêng, có close/drag thật, nhớ pane cuối; giữ `⌘,`, `⌘W`, Escape và thứ tự focus có nghĩa. Label/control thẳng cột; popup của select theo nền tảng.
+- History là danh sách cuộn hữu hạn trong Settings: thời gian theo locale, đường dẫn có thể mở rộng/chọn để sao chép, và kết quả nén/tải lên/thông báo tách rõ. Yêu cầu thông báo hoặc macOS tiếp nhận không đồng nghĩa người dùng đã nhìn thấy banner; nút thử thông báo và mở cài đặt hệ thống nằm trong Tự động hóa.
 - Quality giữ ba nhãn đã thống nhất và cho phép nhãn Việt/Nhật xuống dòng. Không làm mờ lồng nhau khi fieldset và control cùng disabled. Giữ focus ring, Reduce Motion, Reduce Transparency và Increase Contrast.
 - Một họ icon, một thang radius, một accent cho action. Gradient là ngoại lệ thương hiệu được người dùng yêu cầu; không thêm gradient CTA, glow, card Glass hàng loạt, search hoặc onboarding khi chưa có nhu cầu.
 

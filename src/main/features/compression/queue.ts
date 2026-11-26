@@ -17,7 +17,7 @@ export class CompressionQueue extends EventEmitter {
   constructor(readonly settings: SettingsStore, private readonly s3?: Pick<S3Service, 'enabled' | 'upload'>) { super(); }
   isBusy(file: string): boolean { return this.jobs.some(job => job.source === path.resolve(file) && ['queued', 'processing'].includes(job.state)); }
   snapshot(): { jobs: Job[]; isProcessing: boolean; paused: boolean } { return { jobs: this.jobs, isProcessing: this.isProcessing, paused: this.paused }; }
-  enqueue(paths: string[]): Promise<void> {
+  enqueue(paths: string[], origin: 'manual' | 'watch' = 'manual'): Promise<void> {
     const operation = this.ingestion.then(async () => {
       const files = await collectFiles(paths);
       if (!files.length) throw new Error('error.noImages');
@@ -27,6 +27,7 @@ export class CompressionQueue extends EventEmitter {
         try { stat = await fs.stat(source); }
         catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
         this.jobs.push({ id: randomUUID(), source, name: path.basename(source), originalBytes: stat.size, state: 'queued', error: null, result: null });
+        this.emit('accepted', source, origin);
       }
       this.emit('change');
       if (!this.paused) void this.run();
@@ -62,6 +63,7 @@ export class CompressionQueue extends EventEmitter {
           job.error = (error as Error).message;
           console.warn('Tiny PNG: image processing failed:', job.phase, (error as Error).name);
         }
+        this.emit('settled', job);
         this.notificationJobs.set(job.id, job);
         this.emit('change');
       }

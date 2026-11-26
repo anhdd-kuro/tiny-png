@@ -9,7 +9,7 @@ import { Icon } from './lib/Icon';
 import { theme } from './lib/theme.stylex';
 import './reset.css';
 
-const validCategories = ['images', 'automation', 'general', 'cloud'] as const;
+const validCategories = ['images', 'automation', 'general', 'cloud', 'history'] as const;
 function initialCategory(): SettingsCategory {
   const value = new URLSearchParams(location.search).get('category');
   return validCategories.find((category) => category === value) ?? 'images';

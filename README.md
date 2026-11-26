@@ -60,6 +60,10 @@ Mức nén có ba lựa chọn: **Ưu tiên chất lượng · Cân bằng · Ư
 
 Thông báo hoàn tất dùng native macOS Notification trong main process, không dùng web permission. App gộp kết quả theo đợt và không đưa tên/path ảnh vào notification; có thể tắt trong Cài đặt. Quyền thông báo do macOS quản lý. Bản cài ký ad-hoc theo cùng cách với app AI Account Switcher được tham chiếu; khởi động lại máy không đổi chữ ký, nhưng một bản build mới có thể khiến macOS hỏi lại quyền.
 
+**Cài đặt → Lịch sử** lưu tối đa 500 hoạt động trên máy: file vào queue, kết quả nén và dung lượng trước/sau, bật/dừng watcher, upload S3 và trạng thái yêu cầu thông báo. Lịch sử vẫn còn sau khi mở lại app; xóa lịch sử không xóa ảnh. Không ghi credentials hay nội dung ảnh. Hoạt động trước khi cập nhật chưa có lịch sử để khôi phục.
+
+Trong **Cài đặt → Tự động hóa**, dùng **Thử thông báo** để kiểm tra và mở cài đặt thông báo của macOS. App ghi riêng yêu cầu, phản hồi `show`/`failed` của Electron và trường hợp chưa có phản hồi sau 10 giây; trạng thái tiếp nhận không bảo đảm banner hiện khi Focus hoặc tùy chọn hệ thống đang chặn.
+
 Đóng cửa sổ vẫn giữ app và watcher chạy ở menu bar; chọn **Thoát Tiny Assets** hoặc `⌘Q` để dừng. Không cài background service hoặc tự khởi động khi đăng nhập.
 
 Watcher bỏ qua ảnh có sẵn lúc bắt đầu, nhận ảnh mới/thay đổi trong thư mục con và chờ file ghi ổn định trước khi nén. Watcher áp dụng cho mọi ảnh được hỗ trợ, không chỉ screenshot. Lựa chọn thư mục và trạng thái bật được lưu để tiếp tục ở lần chạy app sau; dùng **Dừng theo dõi** để tắt.
@@ -114,7 +118,7 @@ pnpm qa:ui
 
 Typecheck dùng TypeScript 7 với strict mode. Tests dùng ảnh/thư mục tạm cho compressor, queue, settings, CLI và watcher; S3 dùng transport giả, không gọi AWS. `test:native` cần macOS desktop session có quyền WindowServer/pasteboard; chỉ đọc loại dữ liệu kéo và trạng thái chuột, không đọc nội dung clipboard. CI chạy pnpm frozen install, test, build và lưu app ZIP artifact trên macOS. Build thành công chưa thay thế việc kiểm tra drag-and-drop, VoiceOver, chế độ gần góc và Gatekeeper trên máy đích.
 
-`qa:ui` dùng Playwright chạy Electron với profile và ảnh thử riêng trong `tmp/ui-qa/`, chụp renderer và kiểm tra queue, file drop, folder watch, ba ngôn ngữ, nền/Glass và cửa sổ Settings. File picker được thay bằng lựa chọn fixture; engine nén và watcher chạy thật. Screenshot không bao gồm native frame/vibrancy của macOS; kiểm tra riêng phần đó khi review visual. Có thể đặt `TINY_ASSETS_ELECTRON_EXECUTABLE` để dùng Electron binary có sẵn, `TINY_ASSETS_QA_OUTPUT` để đổi thư mục ảnh, hoặc `TINY_ASSETS_QA_VIDEO=1` sau khi cài `pnpm exec playwright install ffmpeg` để ghi video.
+`qa:ui` dùng Playwright chạy Electron với profile và ảnh thử riêng trong `tmp/ui-qa/`, chụp renderer và kiểm tra queue, file drop, folder watch, ba ngôn ngữ, nền/Glass và cửa sổ Settings. File picker được thay bằng lựa chọn fixture; engine nén và watcher chạy thật. QA cũng kiểm tra lịch sử watcher/kết quả, bản dịch, xác nhận xóa và lifecycle thông báo bằng backend giả. Đặt `TINY_ASSETS_QA_NATIVE_NOTIFICATIONS=1` để yêu cầu thêm một thông báo macOS thật và ghi phản hồi; không tự kết luận banner đã hiện. Screenshot không bao gồm native frame/vibrancy của macOS; kiểm tra riêng phần đó khi review visual. Có thể đặt `TINY_ASSETS_ELECTRON_EXECUTABLE` để dùng Electron binary có sẵn, `TINY_ASSETS_QA_OUTPUT` để đổi thư mục ảnh, hoặc `TINY_ASSETS_QA_VIDEO=1` sau khi cài `pnpm exec playwright install ffmpeg` để ghi video.
 
 Sau `pnpm build`, chạy `TINY_ASSETS_QA_PACKAGED=1 pnpm qa:ui` để kiểm tra binary Electron và dependency thực của bundle đã prune. Chế độ này tạo bản sao QA tạm với profile riêng, rồi xóa bản sao và gỡ đăng ký khi xong; không cài bản dev vào Applications hoặc sửa profile người dùng.
 

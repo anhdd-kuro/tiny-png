@@ -25,12 +25,19 @@ test('parallel file drops do not enqueue duplicate active sources', async t => {
   const file = path.join(root, 'screenshot.png');
   await sharp({ create: { width: 80, height: 80, channels: 3, background: '#50a998' } }).png({ compressionLevel: 0 }).toFile(file);
   const queue = new CompressionQueue(new SettingsStore(path.join(root, 'prefs.json')));
+  const accepted: Array<[string, string]> = [];
+  const finished: string[] = [];
+  queue.on('accepted', (source: string, origin: string) => accepted.push([source, origin]));
+  queue.on('settled', job => finished.push(job.state));
   queue.pause();
-  await Promise.all([queue.enqueue([file]), queue.enqueue([file, file])]);
+  await Promise.all([queue.enqueue([file], 'watch'), queue.enqueue([file, file])]);
+  assert.deepEqual(accepted, [[file, 'watch']]);
+  assert.deepEqual(finished, []);
   assert.equal(queue.jobs.length, 1);
   assert.equal(queue.jobs[0].state, 'queued');
   queue.resume(); await settled(queue);
   assert.equal(queue.jobs[0].state, 'completed');
+  assert.deepEqual(finished, ['completed']);
   assert.ok(queue.jobs[0].result!.outputBytes < queue.jobs[0].originalBytes);
 });
 
@@ -66,6 +73,8 @@ test('S3 failure preserves the local output and retry uploads it without recompr
       return { bucket: 'example-bucket', key: 'screenshot.png', location: 's3://example-bucket/screenshot.png' };
     },
   });
+  const outcomes: Array<[string, string | undefined]> = [];
+  queue.on('settled', job => outcomes.push([job.state, job.phase]));
   await queue.enqueue([file]); await settled(queue);
   const job = queue.jobs[0];
   assert.equal(job.state, 'failed');
@@ -77,4 +86,5 @@ test('S3 failure preserves the local output and retry uploads it without recompr
   assert.equal(job.result.remoteLocation, 's3://example-bucket/screenshot.png');
   assert.deepEqual(await fs.readFile(job.result.outputPath), saved);
   assert.equal(attempts, 2);
+  assert.deepEqual(outcomes, [['failed', 'uploading'], ['completed', 'uploading']]);
 });

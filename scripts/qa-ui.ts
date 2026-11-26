@@ -16,6 +16,7 @@ await fs.mkdir(artifacts, { recursive: true });
 await fs.mkdir(runtime, { recursive: true });
 const qaProfile = path.join(qaRoot, 'qa-app-data/Tiny PNG');
 await fs.mkdir(qaProfile, { recursive: true });
+await fs.rm(path.join(qaProfile, 'history.json'), { force: true });
 await fs.writeFile(path.join(qaProfile, 'settings.json'), JSON.stringify({ ...DEFAULT_SETTINGS, notificationsEnabled: false, cornerEnabled: false, watchEnabled: false, watchPath: null, s3Enabled: false, overwrite: false }));
 const metadata = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')) as { version: string };
 const application = await prepareQAApplication(root, runtime, metadata.version);
@@ -172,11 +173,78 @@ try {
   await main.evaluate(() => window.tinyPNG.openSettings('automation'));
   await settings.getByRole('button', { name: translations['watch.chooseFolder'], exact: true }).click();
   await waitForState(main, state => state.watchRunning);
+  if (process.env.TINY_ASSETS_QA_NATIVE_NOTIFICATIONS === '1') await main.evaluate(() => window.tinyPNG.updateSettings({ notificationsEnabled: true }));
   const watched = path.join(watchDirectory, `New screenshot-${Date.now()}.png`);
-  await fs.copyFile(paths[0]!, watched);
+  const screenshotTemporary = path.join(watchDirectory, '.Screenshot-in-progress.png');
+  await fs.copyFile(paths[0]!, screenshotTemporary);
+  await fs.rename(screenshotTemporary, watched);
   const watchedState = await waitForState(main, state => state.jobs.some(job => job.source === watched && job.state === 'completed'));
   assert(!watchedState.jobs.some(job => job.source === baseline));
+  if (process.env.TINY_ASSETS_QA_NATIVE_NOTIFICATIONS === '1') {
+    const nativeWatch = await waitForState(main, state => state.history.some(entry => ['notificationSent', 'notificationFailed', 'notificationUnconfirmed'].includes(entry.action)));
+    console.log('Automatic watcher native notification', JSON.stringify(nativeWatch.history.slice(0, 3)));
+    await main.evaluate(() => window.tinyPNG.updateSettings({ notificationsEnabled: false }));
+  }
   await capture(settings, 'settings-automation-watching-vi-dark');
+  assert(watchedState.history.some(entry => entry.file === watched && entry.action === 'watchDetected'));
+  assert(watchedState.history.some(entry => entry.file === watched && ['compressed', 'skipped'].includes(entry.action)));
+  assert(!watchedState.history.some(entry => entry.file === baseline));
+  assert(watchedState.history.some(entry => entry.action === 'watchStarted' && entry.file === watchDirectory));
+  await settings.getByRole('button', { name: translations['history.heading'], exact: true }).click();
+  await settings.getByText(path.basename(watched), { exact: true }).first().waitFor();
+  for (const language of ['vi', 'en', 'ja'] as const) {
+    await main.evaluate(language => window.tinyPNG.updateSettings({ language }), language);
+    assert(await settings.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await capture(settings, `settings-history-${language}-dark`);
+  }
+  await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'light'; });
+  await settings.emulateMedia({ colorScheme: 'light' });
+  await capture(settings, 'settings-history-ja-light');
+  await main.evaluate(() => window.tinyPNG.updateSettings({ language: 'vi' }));
+  await settings.getByRole('button', { name: translations['settings.automation'], exact: true }).click();
+  await settings.getByRole('button', { name: translations['notifications.test'], exact: true }).waitFor();
+  await main.evaluate(() => window.tinyPNG.updateSettings({ notificationsEnabled: true }));
+  await app.evaluate(({ Notification }) => {
+    const notificationClass = Notification as unknown as { prototype: { show(): void }; };
+    (globalThis as unknown as { qaNotificationShow: unknown }).qaNotificationShow = notificationClass.prototype.show;
+    notificationClass.prototype.show = function (this: { emit(event: string): void }) { this.emit('show'); };
+  });
+  const sentBefore = (await main.evaluate(() => window.tinyPNG.getState())).history.filter(entry => entry.action === 'notificationSent').length;
+  await settings.getByRole('button', { name: translations['notifications.test'], exact: true }).click();
+  await waitForState(main, state => state.history.filter(entry => entry.action === 'notificationSent').length > sentBefore);
+  await app.evaluate(({ Notification }) => {
+    Notification.prototype.show = function () { this.emit('failed', {}, 'QA delivery failure'); };
+  });
+  const failedBefore = (await main.evaluate(() => window.tinyPNG.getState())).history.filter(entry => entry.action === 'notificationFailed').length;
+  await settings.getByRole('button', { name: translations['notifications.test'], exact: true }).click();
+  await waitForState(main, state => state.history.filter(entry => entry.action === 'notificationFailed').length > failedBefore);
+  await app.evaluate(({ Notification }) => {
+    Notification.prototype.show = (globalThis as unknown as { qaNotificationShow: typeof Notification.prototype.show }).qaNotificationShow;
+  });
+  await main.evaluate(() => window.tinyPNG.dismissNotice());
+  if (process.env.TINY_ASSETS_QA_NATIVE_NOTIFICATIONS === '1') {
+    const before = (await main.evaluate(() => window.tinyPNG.getState())).history[0]?.id;
+    await settings.getByRole('button', { name: translations['notifications.test'], exact: true }).click();
+    const native = await waitForState(main, state => {
+      const cutoff = state.history.findIndex(entry => entry.id === before);
+      return state.history.slice(0, cutoff < 0 ? undefined : cutoff).some(entry => ['notificationSent', 'notificationFailed', 'notificationUnconfirmed'].includes(entry.action));
+    });
+    console.log('Native notification lifecycle', JSON.stringify(native.history.slice(0, 2)));
+    await main.evaluate(() => window.tinyPNG.dismissNotice());
+  }
+  await main.evaluate(() => window.tinyPNG.updateSettings({ notificationsEnabled: false }));
+  await settings.getByRole('button', { name: translations['history.heading'], exact: true }).click();
+  const persistedHistory = JSON.parse(await fs.readFile(path.join(qaProfile, 'history.json'), 'utf8'));
+  assert(Array.isArray(persistedHistory) || Array.isArray(persistedHistory.entries));
+  await capture(settings, 'settings-history-notification-results-vi-light');
+  await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false }); });
+  await settings.getByRole('button', { name: translations['history.clearAction'], exact: true }).click();
+  assert((await main.evaluate(() => window.tinyPNG.getState())).history.length > 0);
+  await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }); });
+  await settings.getByRole('button', { name: translations['history.clearAction'], exact: true }).click();
+  await waitForState(main, state => state.history.length === 0);
+  await capture(settings, 'settings-history-empty-vi-light');
+
   await main.evaluate(() => window.tinyPNG.stopWatch());
   await settingsWindow.evaluate(window => window.hide());
   await main.evaluate(() => window.tinyPNG.updateSettings({ language: 'vi', cornerEnabled: true, cornerMode: 'always', dropCorner: 'topRight' }));
