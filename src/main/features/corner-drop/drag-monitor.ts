@@ -57,13 +57,13 @@ function macDragReader(): () => DragSample {
   };
 }
 
-export function isNearCorner(point: Point, workArea: WorkArea, corner: DropCorner, radius = 180): boolean {
+export function isNearCorner(point: Point, workArea: WorkArea, corner: DropCorner, radius = 180, displayBounds: WorkArea = workArea): boolean {
   if (!point || !workArea || !['topRight', 'topLeft', 'bottomRight', 'bottomLeft', 'topCenter'].includes(corner) ||
-      ![point.x, point.y, workArea.x, workArea.y, workArea.width, workArea.height, radius].every(Number.isFinite) ||
-      radius < 0 || workArea.width <= 0 || workArea.height <= 0) return false;
+      ![point.x, point.y, workArea.x, workArea.y, workArea.width, workArea.height, displayBounds.x, displayBounds.y, displayBounds.width, displayBounds.height, radius].every(Number.isFinite) ||
+      radius < 0 || workArea.width <= 0 || workArea.height <= 0 || displayBounds.width <= 0 || displayBounds.height <= 0) return false;
   const maxX = workArea.x + workArea.width;
   const maxY = workArea.y + workArea.height;
-  if (point.x < workArea.x || point.y < workArea.y || point.x > maxX || point.y > maxY) return false;
+  if (point.x < displayBounds.x || point.y < displayBounds.y || point.x > displayBounds.x + displayBounds.width || point.y > displayBounds.y + displayBounds.height) return false;
   const x = corner === 'topCenter' ? workArea.x + workArea.width / 2 : corner.endsWith('Right') ? maxX : workArea.x;
   const y = corner.startsWith('top') ? workArea.y : maxY;
   return Math.hypot(point.x - x, point.y - y) <= radius;

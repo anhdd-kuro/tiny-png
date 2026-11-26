@@ -160,7 +160,10 @@ test('invalid input/options fail before source changes', async t => {
   await assert.rejects(compressFile(file, { format: 'gif' as CompressionOptions['format'] }), { message: 'error.format' });
   const invalid = path.join(directory, 'bad.png');
   await fs.writeFile(invalid, 'not an image');
-  await assert.rejects(compressFile(invalid));
+  await assert.rejects(compressFile(invalid, { overwrite: true }), { message: 'error.inputFormat' });
+  assert.equal(await fs.readFile(invalid, 'utf8'), 'not an image');
+  await assert.rejects(compressFile(path.join(directory, 'missing.png')), { code: 'ENOENT' });
+  assert.deepEqual((await fs.readdir(directory)).filter(name => name.includes('-tinified') || name.startsWith('.tiny-png')), []);
   assert.deepEqual(await fs.readFile(file), input);
 });
 

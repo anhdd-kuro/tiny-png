@@ -36,3 +36,15 @@ test('nearby policy rejects malformed coordinates and settings', () => {
   assert.equal(isNearCorner({ x: 0, y: 0 }, area, 'unknown' as DropCorner), false);
   assert.equal(isNearCorner({ x: 0, y: 0 }, area, 'topLeft', -10), false);
 });
+
+test('top-center reveal remains active through the menu bar inside the same physical display', () => {
+  const bounds = { x: 0, y: 0, width: 1440, height: 900 };
+  const workArea = { x: 0, y: 38, width: 1440, height: 862 };
+  for (const y of [50, 38, 20, 0]) assert.equal(isNearCorner({ x: 720, y }, workArea, 'topCenter', 180, bounds), true);
+  assert.equal(isNearCorner({ x: 720, y: -1 }, workArea, 'topCenter', 180, bounds), false);
+  assert.equal(isNearCorner({ x: 0, y: 0 }, workArea, 'topCenter', 180, bounds), false);
+  const secondBounds = { x: -1920, y: -1080, width: 1920, height: 1080 };
+  const secondWorkArea = { x: -1920, y: -1056, width: 1920, height: 1056 };
+  assert.equal(isNearCorner({ x: -960, y: -1080 }, secondWorkArea, 'topCenter', 180, secondBounds), true);
+  assert.equal(isNearCorner({ x: -960, y: -1081 }, secondWorkArea, 'topCenter', 180, secondBounds), false);
+});

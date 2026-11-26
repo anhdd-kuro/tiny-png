@@ -1,4 +1,4 @@
-type IconName = 'photo' | 'folder' | 'retry' | 'close' | 'settings' | 'automation' | 'general' | 'cloud' | 'check';
+type IconName = 'photo' | 'folder' | 'retry' | 'close' | 'settings' | 'automation' | 'general' | 'cloud' | 'check' | 'plus' | 'warning';
 const paths: Record<IconName, string> = {
   photo: 'M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4M15 8h.01',
   folder: 'M3 7V5h6l2 2h10v12H3z',
@@ -8,6 +8,8 @@ const paths: Record<IconName, string> = {
   automation: 'm13 2-8 12h6l-1 8 9-13h-7z',
   general: 'M5 6h14M5 12h14M5 18h14M9 3v6M15 9v6M10 15v6',
   cloud: 'M7 18a5 5 0 0 1-1-9 6 6 0 0 1 11-2 5 5 0 0 1 1 11Z',
+  plus: 'M12 5v14M5 12h14',
+  warning: 'M12 3 2 21h20L12 3ZM12 9v5M12 17h.01',
   check: 'm5 12 4 4L19 6',
 };
 

@@ -1,6 +1,9 @@
 import * as stylex from '@stylexjs/stylex';
 
 export const theme = stylex.defineVars({
+  focus: { default: '#197c59', '@media (prefers-color-scheme: dark)': '#77d6a8' },
+  disabledText: { default: '#777980', '@media (prefers-color-scheme: dark)': '#92959c' },
+  segmentTrack: { default: '#e8e8ec', '@media (prefers-color-scheme: dark)': '#202023' },
   text: { default: '#1d1d1f', '@media (prefers-color-scheme: dark)': '#f1f1f3' },
   secondary: { default: '#60636b', '@media (prefers-color-scheme: dark)': '#b4b7bf', '@media (prefers-contrast: more)': 'CanvasText' },
   canvas: { default: '#f5f5f7', '@media (prefers-color-scheme: dark)': '#202023' },
@@ -29,6 +32,9 @@ export const theme = stylex.defineVars({
 });
 
 export const originalTheme = stylex.createTheme(theme, {
+  focus: 'rgba(255,255,255,.9)',
+  disabledText: 'rgba(255,255,255,.6)',
+  segmentTrack: 'rgba(12,12,12,.35)',
   text: '#ffffff',
   secondary: { default: 'rgba(255,255,255,.9)', '@media (prefers-contrast: more)': '#ffffff' },
   canvas: '#348cab',

@@ -48,9 +48,9 @@ Build dùng chữ ký **ad-hoc**, cùng loại đã kiểm tra ở AI Account Sw
 2. Mở Cài đặt để chọn quality, định dạng đầu ra, resize hoặc thư mục lưu. Mặc định giữ ảnh gốc.
 3. Chọn **Theo dõi thư mục** và chọn Desktop để tự nén screenshot mới lưu tại đó. Nếu macOS lưu screenshot nơi khác, chọn đúng thư mục đó.
 
-Cài đặt hỗ trợ English, Tiếng Việt và 日本語. Vùng thả nổi có hai chế độ: luôn hiện, hoặc chỉ hiện khi đang kéo file đến gần vị trí đã chọn. Chọn một trong bốn góc hoặc **Giữa phía trên (Dynamic Island)**, dạng pill bên dưới notch. Có thể tắt vùng thả. Nhận biết kéo file dùng API macOS qua Koffi trong process; không có Swift helper/subprocess.
+Cài đặt hỗ trợ English, Tiếng Việt và 日本語. Vùng thả nổi có hai chế độ: luôn hiện, hoặc chỉ hiện khi đang kéo file đến gần vị trí đã chọn. Chọn một trong bốn góc hoặc **Giữa phía trên (dưới notch)**. Có thể tắt vùng thả. Nhận biết kéo file dùng API macOS qua Koffi trong process; không có Swift helper/subprocess.
 
-Nền chính luôn giữ gradient xanh dương–xanh lá theo tham chiếu tinyPNG.App, cùng đầu khủng long riêng của app. Toolbar gọn, control theo kích thước desktop và vùng thả thu nhỏ khi queue có ảnh. **Glass** là tùy chọn trong Cài đặt, mặc định tắt: tạo lớp trong suốt ở toolbar/footer và vùng nổi, giữ nguyên gradient chính. Cửa sổ hỗ trợ native macOS vibrancy qua Electron; đây không phải Liquid Glass. Khi hệ thống yêu cầu giảm độ trong suốt hoặc tăng tương phản, app tắt vibrancy/blur và dùng nền đặc ở các vùng chức năng; Reduce Motion dừng spinner chuyển động.
+Nền chính mặc định là gradient xanh dương–xanh lá; Cài đặt cho chọn **Chuyển sắc / Đơn sắc**. Khi có ảnh, queue thay vùng thả; vẫn có thể thả thêm ảnh vào vùng nội dung hoặc dùng nút + trên toolbar/`⌘O`. **Glass** mặc định tắt, có slider độ đậm nền 20–100%; chỉ nền thay đổi opacity, chữ/control và vùng nội dung giữ tương phản rõ. Cửa sổ hỗ trợ native macOS vibrancy qua Electron; đây không phải Liquid Glass. Khi hệ thống yêu cầu giảm độ trong suốt hoặc tăng tương phản, app tắt vibrancy/blur và dùng nền đặc ở các vùng chức năng; Reduce Motion dừng spinner chuyển động.
 
 Cài đặt mở trong cửa sổ macOS riêng, dùng light/dark theo hệ thống. `⌘,` mở hoặc đưa cửa sổ này lên trước; `⌘W` hoặc Escape đóng cửa sổ Cài đặt. Pane đang chọn được giữ khi đóng/mở lại trong cùng lần chạy app. `⌘O` chọn ảnh từ cửa sổ chính.
 
@@ -107,9 +107,12 @@ pnpm lint
 pnpm test
 pnpm test:native
 pnpm build
+pnpm qa:ui
 ```
 
 Typecheck dùng TypeScript 7 với strict mode. Tests dùng ảnh/thư mục tạm cho compressor, queue, settings, CLI và watcher; S3 dùng transport giả, không gọi AWS. `test:native` cần macOS desktop session có quyền WindowServer/pasteboard; chỉ đọc loại dữ liệu kéo và trạng thái chuột, không đọc nội dung clipboard. CI chạy pnpm frozen install, test, build và lưu app ZIP artifact trên macOS. Build thành công chưa thay thế việc kiểm tra drag-and-drop, VoiceOver, chế độ gần góc và Gatekeeper trên máy đích.
+
+`qa:ui` dùng Playwright chạy Electron với profile và ảnh thử riêng trong `tmp/ui-qa/`, chụp renderer và kiểm tra queue, file drop, folder watch, ba ngôn ngữ, nền/Glass và cửa sổ Settings. File picker được thay bằng lựa chọn fixture; engine nén và watcher chạy thật. Screenshot không bao gồm native frame/vibrancy của macOS; kiểm tra riêng phần đó khi review visual. Có thể đặt `TINY_ASSETS_ELECTRON_EXECUTABLE` để dùng Electron binary có sẵn, `TINY_ASSETS_QA_OUTPUT` để đổi thư mục ảnh, hoặc `TINY_ASSETS_QA_VIDEO=1` sau khi cài `pnpm exec playwright install ffmpeg` để ghi video.
 
 Lint dùng các rule chính thức của StyleX để kiểm tra style, shorthand và thuộc tính xung đột. Với cấu hình hiện tại, `border` shorthand không được compile thành CSS; điều này từng làm button, fieldset và dialog hiện viền mặc định của Chromium. Dùng `borderWidth`, `borderStyle`, `borderColor` và các longhand theo cạnh; giữ reset cho native form controls. `pnpm lint` là điều kiện bắt buộc trước khi build/phát hành.
 

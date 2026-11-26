@@ -6,7 +6,7 @@ import { applyWindowMaterial } from '../appearance/material';
 export function createAppWindow({ preload, html, isQuitting }: { preload: string; html: string; isQuitting: () => boolean }): BrowserWindow {
   const window = new BrowserWindow({
     title: APP_NAME, width: 760, height: 680, minWidth: 680, minHeight: 560,
-    titleBarStyle: 'hiddenInset', backgroundColor: '#00000000', show: false,
+    titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 20 }, backgroundColor: '#00000000', show: false,
     vibrancy: 'under-window', visualEffectState: 'active', roundedCorners: true,
     webPreferences: webPreferences(preload),
   });

@@ -1,9 +1,10 @@
 import * as stylex from '@stylexjs/stylex';
 import type { AppState, Job, Language } from '../../../shared/contracts';
 import type { ActionRunner } from '../application/useAppState';
-import type { Translator } from '../localization/i18n';
+import type { Translator } from '../../../shared/localization';
 import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
+import { formatReduction } from './formatting';
 import { Icon } from '../../lib/Icon';
 
 interface QueueProps { state: AppState; run: ActionRunner; t: Translator }
@@ -28,10 +29,10 @@ export function Queue({ state, run, t }: QueueProps) {
       <div {...stylex.props(styles.heading)}>
         <h2 id="queue-heading" {...stylex.props(styles.title)}>{t('queue.heading')} <span {...stylex.props(styles.count)}>{state.jobs.length}</span></h2>
         <div {...stylex.props(styles.actions)}>
-          {summary.failed > 0 && <button type="button" {...stylex.props(styles.textButton)} onClick={() => void run(async () => {
+          {summary.failed > 0 && <button type="button" {...stylex.props(controls.focus, styles.textButton)} onClick={() => void run(async () => {
             for (const job of state.jobs.filter((item) => item.state === 'failed')) await window.tinyPNG.retry(job.id);
           })}>{t('queue.retryAll')}</button>}
-          <button type="button" {...stylex.props(styles.textButton)} disabled={!state.jobs.some((job) => job.state === 'completed' || job.state === 'failed')}
+          <button type="button" {...stylex.props(controls.focus, styles.textButton)} disabled={!state.jobs.some((job) => job.state === 'completed' || job.state === 'failed')}
             onClick={() => void run(() => window.tinyPNG.clearFinished())}>{t('queue.clear')}</button>
         </div>
       </div>
@@ -47,15 +48,15 @@ export function Queue({ state, run, t }: QueueProps) {
             {job.result && <span {...stylex.props(styles.output)}>{bytes(job.result.outputBytes, state.settings.language)}</span>}</div>
           <div {...stylex.props(styles.result)}>
             {job.state === 'processing' ? <span {...stylex.props(styles.spinner)} role="status" aria-label={t(job.phase === 'uploading' ? 's3.uploading' : 'app.processing')} title={t(job.phase === 'uploading' ? 's3.uploading' : 'app.processing')} /> : job.result ?
-              <span {...stylex.props(styles.saved)} title={job.result.skipped ? t('queue.noReduction') : undefined}>{job.result.skipped ? '—' : `−${Math.max(0, Math.round((1 - job.result.outputBytes / Math.max(1, job.result.originalBytes)) * 100))}%`}</span> :
+              <span {...stylex.props(styles.saved)} title={job.result.skipped ? t('queue.noReduction') : undefined}>{job.result.skipped ? '—' : `−${formatReduction(job.result.originalBytes, job.result.outputBytes, state.settings.language)}%`}</span> :
               job.state === 'queued' ? <span {...stylex.props(styles.state)}>{t('queue.queued')}</span> : null}
           </div>
           <div {...stylex.props(styles.rowActions)}>
-            {job.result && <button type="button" {...stylex.props(controls.icon, styles.action)} aria-label={t('queue.reveal', { name: job.name })} title={t('queue.revealShort')}
+            {job.result && <button type="button" {...stylex.props(controls.focus, controls.icon, styles.action)} aria-label={t('queue.reveal', { name: job.name })} title={t('queue.revealShort')}
               onClick={() => void run(() => window.tinyPNG.reveal(job.result!.outputPath))}><Icon name="folder" size={16} /></button>}
-            {job.state === 'failed' && <button type="button" {...stylex.props(controls.icon, styles.action)} aria-label={t('queue.retry', { name: job.name })} title={t('queue.retry', { name: job.name })}
+            {job.state === 'failed' && <button type="button" {...stylex.props(controls.focus, controls.icon, styles.action)} aria-label={t('queue.retry', { name: job.name })} title={t('queue.retry', { name: job.name })}
               onClick={() => void run(() => window.tinyPNG.retry(job.id))}><Icon name="retry" size={16} /></button>}
-            {job.state !== 'processing' && <button type="button" {...stylex.props(controls.icon, styles.action)} aria-label={t('queue.remove', { name: job.name })} title={t('queue.remove', { name: job.name })}
+            {job.state !== 'processing' && <button type="button" {...stylex.props(controls.focus, controls.icon, styles.action)} aria-label={t('queue.remove', { name: job.name })} title={t('queue.remove', { name: job.name })}
               onClick={() => void run(() => window.tinyPNG.remove(job.id))}><Icon name="close" size={15} /></button>}
           </div>
         </li>)}
@@ -69,31 +70,33 @@ export function QueueFooter({ state, run, t, glass = false }: QueueProps & { gla
   const summary = stats(state.jobs);
   const hasCompleted = summary.completed.length > 0;
   const primary = state.jobs.some((job) => job.state === 'processing' && job.phase === 'uploading') ? t('s3.uploading') : hasCompleted ? t('queue.saved', { size: bytes(summary.saved, state.settings.language) }) : state.isProcessing ? t('app.processing') : summary.failed ? t('app.errorCount', { count: summary.failed }) : t('queue.ready');
-  const button = state.isProcessing ? t(state.paused ? 'queue.pausing' : 'queue.pause') : summary.pending ? t('queue.compress', { count: summary.pending }) : t('queue.add');
+  const button = state.isProcessing ? t(state.paused ? 'queue.pausing' : 'queue.pause') : summary.pending ? t('queue.compress', { count: summary.pending }) : '';
   if (!state.jobs.length) return null;
   return <footer {...stylex.props(styles.footer, glass && styles.glassChrome)}>
     <div {...stylex.props(styles.summary)}><strong {...stylex.props(styles.summaryTitle)}>{primary}</strong>
-      {hasCompleted && <span {...stylex.props(styles.summaryMeta)}>{t('queue.completed', { count: summary.completed.length, percent: summary.original ? Math.round(summary.saved / summary.original * 100) : 0 })}</span>}</div>
-    <button type="button" {...stylex.props(controls.button, styles.primary)} disabled={state.isProcessing && state.paused} onClick={() => void run(() => state.isProcessing ? window.tinyPNG.pause() : summary.pending ? window.tinyPNG.resume() : window.tinyPNG.chooseFiles())}>{button}</button>
+      {state.settings.overwrite && <span {...stylex.props(styles.overwrite)}><Icon name="warning" size={14} />{t('settings.overwriteWarning')}</span>}
+      {hasCompleted && <span {...stylex.props(styles.summaryMeta)}>{t('queue.completed', { count: summary.completed.length, percent: formatReduction(summary.original, summary.original - summary.saved, state.settings.language) })}</span>}</div>
+    {(state.isProcessing || summary.pending > 0) && <button type="button" {...stylex.props(controls.focus, controls.button, styles.primary)} disabled={state.isProcessing && state.paused} onClick={() => void run(() => state.isProcessing ? window.tinyPNG.pause() : window.tinyPNG.resume())}>{button}</button>}
   </footer>;
 }
 
 const spin = stylex.keyframes({ to: { transform: 'rotate(360deg)' } });
 const styles = stylex.create({
-  section: { marginTop: 24, paddingTop: 8, paddingInline: 12, borderRadius: 8, backgroundColor: { default: 'rgba(12,12,12,.35)', '@media (prefers-reduced-transparency: reduce)': '#264a58' } }, heading: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
+  section: { margin: 0 }, heading: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
   title: { fontSize: '.8125rem', fontWeight: 600, margin: 0, color: theme.secondary }, count: { fontWeight: 400, marginLeft: 5, fontVariantNumeric: 'tabular-nums' },
   actions: { display: 'flex', gap: 16 }, textButton: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', paddingBlock: 5, paddingInline: 2, backgroundColor: { default: 'transparent', ':active': theme.controlPressed }, borderRadius: 4, fontSize: '.75rem', color: { default: theme.secondary, ':hover': theme.text } },
   list: { listStyle: 'none', padding: 0, margin: 0, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: theme.separator },
-  row: { display: 'grid', gridTemplateColumns: { default: '16px minmax(0,1fr) 144px 56px 84px', '@media (max-width: 740px)': '16px minmax(0,1fr) 124px 48px 84px' }, alignItems: 'center', gap: 8, paddingBlock: 8, paddingInline: 0, minHeight: 44, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: theme.separator },
+  row: { display: 'grid', gridTemplateColumns: { default: '16px minmax(0,1fr) 144px 56px 92px', '@media (max-width: 740px)': '16px minmax(0,1fr) 124px 48px 92px' }, alignItems: 'center', gap: 8, paddingBlock: 8, paddingInline: 0, minHeight: 44, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: theme.separator },
   fileIcon: { display: 'flex', alignItems: 'center', color: theme.secondary }, errorColor: { color: theme.danger },
   info: { minWidth: 0 }, nameLine: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }, name: { display: 'block', fontSize: '.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '18px' },
   meta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, fontSize: '.75rem', color: theme.secondary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }, strike: { textDecoration: 'line-through' }, output: { color: theme.text },
   error: { fontSize: '.75rem', lineHeight: 1.4, color: theme.danger, overflowWrap: 'anywhere', marginTop: 4, marginBottom: 0 },
   result: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }, saved: { fontSize: '.8125rem', fontWeight: 550, fontVariantNumeric: 'tabular-nums' },
-  s3: { fontSize: '.6875rem', color: theme.secondary, fontWeight: 500, flexShrink: 0 }, rowActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0 }, action: { width: 28, height: 28 },
+  s3: { fontSize: '.6875rem', color: theme.secondary, fontWeight: 500, flexShrink: 0 }, rowActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }, action: { width: 28, height: 28 },
   state: { fontSize: '.75rem', color: theme.secondary }, spinner: { width: 14, height: 14, borderWidth: 1.5, borderStyle: 'solid', borderColor: theme.border, borderTopColor: theme.secondary, borderRadius: '50%', animationName: { default: spin, '@media (prefers-reduced-motion: reduce)': 'none' }, animationDuration: '.8s', animationTimingFunction: 'linear', animationIterationCount: 'infinite' },
   footer: { display: 'flex', alignItems: 'center', gap: 16, minHeight: 56, paddingBlock: 8, paddingInline: 20, backgroundColor: theme.toolbar, borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: theme.separator, flexShrink: 0 },
-  glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.12)', backgroundColor: { default: 'rgba(5,35,41,.45)', '@media (prefers-reduced-transparency: reduce)': '#316d87', '@media (prefers-contrast: more)': '#20556a' }, backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
+  glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.12)', backgroundColor: { default: 'rgba(5,35,41,.82)', '@media (prefers-reduced-transparency: reduce)': '#316d87', '@media (prefers-contrast: more)': '#20556a' }, backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
+  overwrite: { display: 'flex', alignItems: 'center', gap: 8, color: theme.danger, fontSize: '.75rem', lineHeight: '16px' },
   summary: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }, summaryTitle: { fontSize: '.8125rem', fontWeight: 550 }, summaryMeta: { fontSize: '.75rem', color: theme.secondary },
   primary: { marginLeft: 'auto', paddingBlock: 4, paddingInline: 12, fontWeight: 550, minHeight: 28, whiteSpace: 'nowrap', color: theme.primaryText, borderColor: 'transparent', backgroundColor: { default: theme.accent, ':hover': theme.accentHover, ':active': theme.accentPressed } },
 });

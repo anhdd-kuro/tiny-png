@@ -3,7 +3,7 @@ import * as stylex from '@stylexjs/stylex';
 import type { AppState, Settings as Preferences, SettingsPatch, SettingsCategory } from '../../../shared/contracts';
 import { LOCALES } from '../../../shared/locales';
 import type { ActionRunner } from '../application/useAppState';
-import type { Translator } from '../localization/i18n';
+import type { Translator } from '../../../shared/localization';
 import { WatchControls } from '../folder-watch/WatchControls';
 import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
@@ -12,12 +12,12 @@ import { Icon } from '../../lib/Icon';
 interface Props { state: AppState; category: SettingsCategory; setCategory: (category: SettingsCategory) => void; run: ActionRunner; t: Translator }
 function Toggle({ label, checked, disabled, change }: { label: string; checked: boolean; disabled?: boolean; change: (value: boolean) => void }) {
   return <label {...stylex.props(controls.row)}><span>{label}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled}
-    {...stylex.props(styles.toggle, checked && styles.checked)} onChange={(event) => change(event.currentTarget.checked)} /></label>;
+    {...stylex.props(controls.focus, styles.toggle, checked && styles.checked)} onChange={(event) => change(event.currentTarget.checked)} /></label>;
 }
 function NumericSetting({ value, label, max = 32768, errorKey = 'error.dimensions', change, t }: { value: number; label: string; max?: number; errorKey?: string; change: (value: number) => void; t: Translator }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
-  return <label {...stylex.props(styles.dimension)}>{label}<input {...stylex.props(controls.field, styles.number)} type="number" min="1" max={max} step="1" required value={draft}
+  return <label {...stylex.props(styles.dimension)}>{label}<input {...stylex.props(controls.focus, controls.field, styles.number)} type="number" min="1" max={max} step="1" required value={draft}
     onChange={(event) => { event.currentTarget.setCustomValidity(''); setDraft(event.currentTarget.value); }}
     onBlur={(event) => {
       const input = event.currentTarget;
@@ -50,7 +50,6 @@ function S3Settings({ state, run, t }: Pick<Props, 'state' | 'run' | 't'>) {
   const [secretAccessKey, setSecretAccessKey] = useState('');
   const [sessionToken, setSessionToken] = useState('');
   const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => { setRegion(settings.s3Region); setBucket(settings.s3Bucket); setPrefix(settings.s3Prefix); }, [settings.s3Region, settings.s3Bucket, settings.s3Prefix]);
   useEffect(() => {
     const clearDrafts = () => { if (document.hidden) { setAccessKeyId(''); setSecretAccessKey(''); setSessionToken(''); } };
@@ -60,34 +59,31 @@ function S3Settings({ state, run, t }: Pick<Props, 'state' | 'run' | 't'>) {
   const configured = state.hasS3Credentials && !!settings.s3Region.trim() && !!settings.s3Bucket.trim();
   const destinationChanged = region !== settings.s3Region || bucket !== settings.s3Bucket || prefix !== settings.s3Prefix;
   const saveDestination = () => void run(async () => {
-    setSaving(true); setFailure(null);
+    setSaving(true);
     try { await window.tinyPNG.updateSettings({ s3Region: region.trim(), s3Bucket: bucket.trim(), s3Prefix: prefix }); }
-    catch (error) { setFailure(error instanceof Error ? error.message : t('error.s3Config')); throw error; }
     finally { setSaving(false); }
   });
   const saveCredentials = () => void run(async () => {
-    setSaving(true); setFailure(null);
+    setSaving(true);
     try {
       await window.tinyPNG.saveS3Credentials({ accessKeyId: accessKeyId.trim(), secretAccessKey: secretAccessKey.trim(), ...(sessionToken.trim() ? { sessionToken: sessionToken.trim() } : {}) });
       setAccessKeyId(''); setSecretAccessKey(''); setSessionToken('');
-    } catch (error) { setFailure(error instanceof Error ? error.message : t('error.s3Credentials')); throw error; }
-    finally { setSaving(false); }
+    } finally { setSaving(false); }
   });
 
   return <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing || saving}>
     <Toggle label={t('s3.enabled')} checked={settings.s3Enabled} disabled={!settings.s3Enabled && !configured}
       change={(s3Enabled) => void run(() => window.tinyPNG.updateSettings({ s3Enabled }))} />
     <p {...stylex.props(styles.note)}>{t('s3.disclosure')}</p>
-    <label {...stylex.props(controls.row)}><span>{t('s3.region')}</span><input {...stylex.props(controls.field)} type="text" autoComplete="off" spellCheck={false} value={region} onChange={(event) => setRegion(event.currentTarget.value)} /></label>
-    <label {...stylex.props(controls.row)}><span>{t('s3.bucket')}</span><input {...stylex.props(controls.field)} type="text" autoComplete="off" spellCheck={false} value={bucket} onChange={(event) => setBucket(event.currentTarget.value)} /></label>
-    <label {...stylex.props(controls.row)}><span>{t('s3.prefix')}</span><input {...stylex.props(controls.field)} type="text" autoComplete="off" spellCheck={false} value={prefix} onChange={(event) => setPrefix(event.currentTarget.value)} /></label>
-    <button type="button" {...stylex.props(controls.button, styles.saveS3)} disabled={!destinationChanged || !region.trim() || !bucket.trim()} onClick={saveDestination}>{t('s3.saveConfig')}</button>
+    <label {...stylex.props(controls.row)}><span>{t('s3.region')}</span><input {...stylex.props(controls.focus, controls.field)} type="text" autoComplete="off" spellCheck={false} value={region} onChange={(event) => setRegion(event.currentTarget.value)} /></label>
+    <label {...stylex.props(controls.row)}><span>{t('s3.bucket')}</span><input {...stylex.props(controls.focus, controls.field)} type="text" autoComplete="off" spellCheck={false} value={bucket} onChange={(event) => setBucket(event.currentTarget.value)} /></label>
+    <label {...stylex.props(controls.row)}><span>{t('s3.prefix')}</span><input {...stylex.props(controls.focus, controls.field)} type="text" autoComplete="off" spellCheck={false} value={prefix} onChange={(event) => setPrefix(event.currentTarget.value)} /></label>
+    <button type="button" {...stylex.props(controls.focus, controls.button, styles.saveS3)} disabled={!destinationChanged || !region.trim() || !bucket.trim()} onClick={saveDestination}>{t('s3.saveConfig')}</button>
     <p {...stylex.props(styles.credentialStatus)} role="status">{t(state.hasS3Credentials ? 's3.credentialsSaved' : 's3.notConfigured')}</p>
-    <label {...stylex.props(styles.credentialField)}>{t('s3.accessKeyId')}<input {...stylex.props(controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={accessKeyId} onChange={(event) => setAccessKeyId(event.currentTarget.value)} /></label>
-    <label {...stylex.props(styles.credentialField)}>{t('s3.secretAccessKey')}<input {...stylex.props(controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.currentTarget.value)} /></label>
-    <label {...stylex.props(styles.credentialField)}>{t('s3.sessionToken')}<input {...stylex.props(controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={sessionToken} onChange={(event) => setSessionToken(event.currentTarget.value)} /></label>
-    <button type="button" {...stylex.props(controls.button, styles.saveS3)} disabled={!accessKeyId.trim() || !secretAccessKey.trim()} onClick={saveCredentials}>{t(saving ? 's3.saving' : 's3.saveCredentials')}</button>
-    {failure && <p {...stylex.props(styles.failure)} role="alert">{failure}</p>}
+    <label {...stylex.props(styles.credentialField)}>{t('s3.accessKeyId')}<input {...stylex.props(controls.focus, controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={accessKeyId} onChange={(event) => setAccessKeyId(event.currentTarget.value)} /></label>
+    <label {...stylex.props(styles.credentialField)}>{t('s3.secretAccessKey')}<input {...stylex.props(controls.focus, controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.currentTarget.value)} /></label>
+    <label {...stylex.props(styles.credentialField)}>{t('s3.sessionToken')}<input {...stylex.props(controls.focus, controls.field, styles.credentialInput)} type="password" autoComplete="new-password" spellCheck={false} value={sessionToken} onChange={(event) => setSessionToken(event.currentTarget.value)} /></label>
+    <button type="button" {...stylex.props(controls.focus, controls.button, styles.saveS3)} disabled={!accessKeyId.trim() || !secretAccessKey.trim()} onClick={saveCredentials}>{t(saving ? 's3.saving' : 's3.saveCredentials')}</button>
   </fieldset>;
 }
 
@@ -101,30 +97,26 @@ const categories = [
 export function Settings({ state, category, setCategory, run, t }: Props) {
   const settings = state.settings;
   const patch = (value: SettingsPatch) => void run(() => window.tinyPNG.updateSettings(value));
-  return <main {...stylex.props(styles.window)}>
+  return <main {...stylex.props(styles.window, settings.glassEnabled && styles.glass)}>
     <div {...stylex.props(styles.body)}>
-      <nav {...stylex.props(styles.sidebar)} aria-label={t('settings.heading')}>
-        {categories.map((item) => <button type="button" key={item.id} {...stylex.props(styles.navigation, category === item.id && styles.navigationSelected)} aria-current={category === item.id ? 'page' : undefined} onClick={() => setCategory(item.id)}>
+      <nav {...stylex.props(styles.sidebar, settings.glassEnabled && styles.glassSidebar(`light-dark(rgba(237,237,240,${settings.glassOpacity / 100}),rgba(36,36,39,${settings.glassOpacity / 100}))`))} aria-label={t('settings.heading')}>
+        {categories.map((item) => <button type="button" key={item.id} {...stylex.props(controls.focus, styles.navigation, category === item.id && styles.navigationSelected)} aria-current={category === item.id ? 'page' : undefined} onClick={() => setCategory(item.id)}>
           <Icon name={item.icon} size={16} /><span>{t(item.label)}</span>
         </button>)}
       </nav>
-      <div {...stylex.props(styles.panel)} aria-labelledby="settings-category">
-        <h3 id="settings-category" {...stylex.props(styles.categoryTitle)}>{t(categories.find((item) => item.id === category)!.label)}</h3>
-        {state.notice && category !== 'cloud' && <div {...stylex.props(styles.inlineNotice)} role="alert"><span>{state.notice}</span><button type="button" {...stylex.props(controls.icon)} aria-label={t('common.close')} onClick={() => void run(() => window.tinyPNG.dismissNotice())}><Icon name="close" size={14} /></button></div>}
+      <div {...stylex.props(styles.panel)} role="region" aria-label={t(categories.find((item) => item.id === category)!.label)}>
         {category === 'images' && <>
           <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing}>
             <Quality value={settings.quality} disabled={state.isProcessing} change={(quality) => patch({ quality })} t={t} />
           </fieldset>
           <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing}>
             <h4 {...stylex.props(controls.heading)}>{t('settings.saveHeading')}</h4>
-            <Toggle label={t('settings.overwrite')} checked={settings.overwrite} change={(overwrite) => {
-              if (!overwrite || window.confirm(t('settings.overwriteConfirm'))) patch({ overwrite });
-            }} />
-            <label {...stylex.props(controls.row)}><span>{t('settings.format')}</span><select {...stylex.props(controls.field)} value={settings.format} onChange={(event) => patch({ format: event.currentTarget.value as Preferences['format'] })}>
+            <Toggle label={t('settings.overwrite')} checked={settings.overwrite} change={(overwrite) => patch({ overwrite })} />
+            <label {...stylex.props(controls.row)}><span>{t('settings.format')}</span><select {...stylex.props(controls.focus, controls.field)} value={settings.format} onChange={(event) => patch({ format: event.currentTarget.value as Preferences['format'] })}>
               <option value="original">{t('settings.originalFormat')}</option>{(['webp', 'jpeg', 'png', 'avif'] as const).map((format) => <option key={format} value={format}>{format === 'jpeg' ? 'JPEG' : format === 'webp' ? 'WebP' : format.toUpperCase()}</option>)}</select></label>
-            <div {...stylex.props(controls.pathRow)}><span {...stylex.props(controls.path)} title={settings.outputDirectory ?? ''}>{settings.outputDirectory || t('settings.sameFolder')}</span>
-              <button type="button" {...stylex.props(controls.button)} onClick={() => void run(() => window.tinyPNG.chooseOutputFolder())}>{t('common.choose')}</button>
-              {settings.outputDirectory && <button type="button" {...stylex.props(controls.button)} onClick={() => patch({ outputDirectory: null })}>{t('settings.reset')}</button>}</div>
+            <div {...stylex.props(styles.pathGroup)}><span {...stylex.props(controls.heading)}>{t('settings.outputFolder')}</span><div {...stylex.props(controls.pathRow)}><span {...stylex.props(controls.path)} title={settings.outputDirectory ?? ''}>{settings.outputDirectory || t('settings.sameFolder')}</span>
+              <button type="button" {...stylex.props(controls.focus, controls.button)} aria-label={t('settings.chooseOutputFolder')} onClick={() => void run(() => window.tinyPNG.chooseOutputFolder())}>{t('common.choose')}</button>
+              {settings.outputDirectory && <button type="button" {...stylex.props(controls.focus, controls.button)} onClick={() => patch({ outputDirectory: null })}>{t('settings.reset')}</button>}</div></div>
           </fieldset>
           <fieldset {...stylex.props(styles.fieldset, controls.section)} disabled={state.isProcessing}>
             <Toggle label={t('settings.resize')} checked={settings.resizeEnabled} change={(resizeEnabled) => patch({ resizeEnabled })} />
@@ -136,8 +128,8 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
                 </label>)}
               </div>
               {settings.resizeMode === 'percent' ? <NumericSetting value={settings.resizePercent} label={t('settings.resizePercent')} max={100} errorKey="error.resizePercent" change={(resizePercent) => patch({ resizePercent })} t={t} /> : <>
-                <label {...stylex.props(controls.row)}><span>{t('settings.method')}</span><select {...stylex.props(controls.field)} value={settings.resizeMethod} onChange={(event) => patch({ resizeMethod: event.currentTarget.value as Preferences['resizeMethod'] })}>
-                  {(['fit', 'cover', 'scale', 'thumb'] as const).map((method) => <option key={method} value={method}>{method[0]!.toUpperCase() + method.slice(1)}</option>)}</select></label>
+                <label {...stylex.props(controls.row)}><span>{t('settings.method')}</span><select {...stylex.props(controls.focus, controls.field)} value={settings.resizeMethod} onChange={(event) => patch({ resizeMethod: event.currentTarget.value as Preferences['resizeMethod'] })}>
+                  {(['fit', 'cover', 'scale', 'thumb'] as const).map((method) => <option key={method} value={method}>{t(`settings.method.${method}`)}</option>)}</select></label>
                 <div {...stylex.props(styles.dimensions)}><NumericSetting value={settings.width} label={t('settings.width')} change={(width) => patch({ width })} t={t} />
                   {settings.resizeMethod !== 'scale' && <NumericSetting value={settings.height} label={t('settings.height')} change={(height) => patch({ height })} t={t} />}</div>
               </>}
@@ -149,16 +141,29 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
           <WatchControls state={state} run={run} t={t} />
           <section {...stylex.props(controls.section)}><h4 {...stylex.props(controls.heading)}>{t('corner.heading')}</h4>
             <Toggle label={t('corner.enabled')} checked={settings.cornerEnabled} change={(cornerEnabled) => patch({ cornerEnabled })} />
-            <label {...stylex.props(controls.row)}><span>{t('corner.mode')}</span><select {...stylex.props(controls.field)} disabled={!settings.cornerEnabled} value={settings.cornerMode} onChange={(event) => patch({ cornerMode: event.currentTarget.value as Preferences['cornerMode'] })}>
+            <label {...stylex.props(controls.row)}><span>{t('corner.mode')}</span><select {...stylex.props(controls.focus, controls.field)} disabled={!settings.cornerEnabled} value={settings.cornerMode} onChange={(event) => patch({ cornerMode: event.currentTarget.value as Preferences['cornerMode'] })}>
               <option value="always">{t('corner.always')}</option><option value="nearby">{t('corner.nearby')}</option></select></label>
-            <label {...stylex.props(controls.row)}><span>{t('corner.position')}</span><select {...stylex.props(controls.field)} disabled={!settings.cornerEnabled} value={settings.dropCorner} onChange={(event) => patch({ dropCorner: event.currentTarget.value as Preferences['dropCorner'] })}>
+            <label {...stylex.props(controls.row)}><span>{t('corner.position')}</span><select {...stylex.props(controls.focus, controls.field)} disabled={!settings.cornerEnabled} value={settings.dropCorner} onChange={(event) => patch({ dropCorner: event.currentTarget.value as Preferences['dropCorner'] })}>
               {(['topCenter', 'topRight', 'bottomRight', 'topLeft', 'bottomLeft'] as const).map((corner) => <option key={corner} value={corner}>{t(`corner.${corner}`)}</option>)}</select></label>
           </section>
         </>}
         {category === 'general' && <section {...stylex.props(controls.section)}>
-          <label {...stylex.props(controls.row)}><span>{t('settings.language')}</span><select {...stylex.props(controls.field)} value={settings.language} onChange={(event) => patch({ language: event.currentTarget.value as Preferences['language'] })}>
+          <label {...stylex.props(controls.row)}><span>{t('settings.language')}</span><select {...stylex.props(controls.focus, controls.field)} value={settings.language} onChange={(event) => patch({ language: event.currentTarget.value as Preferences['language'] })}>
             {LOCALES.map((language) => <option key={language} value={language}>{({ en: 'English', vi: 'Tiếng Việt', ja: '日本語' })[language]}</option>)}</select></label>
+          <fieldset {...stylex.props(styles.fieldset)}>
+            <legend {...stylex.props(styles.qualityHeading)}>{t('settings.background')}</legend>
+            <div {...stylex.props(styles.qualityTabs, styles.resizeModes)}>
+              {(['gradient', 'solid'] as const).map((backgroundStyle) => <label key={backgroundStyle} {...stylex.props(styles.qualityTab, settings.backgroundStyle === backgroundStyle && styles.qualitySelected)}>
+                <input {...stylex.props(styles.qualityInput)} type="radio" name="background-style" value={backgroundStyle} checked={settings.backgroundStyle === backgroundStyle} onChange={() => patch({ backgroundStyle })} />
+                <span>{t(`settings.background.${backgroundStyle}`)}</span>
+              </label>)}
+            </div>
+          </fieldset>
           <Toggle label={t('settings.glass')} checked={settings.glassEnabled} change={(glassEnabled) => patch({ glassEnabled })} />
+          <label {...stylex.props(controls.row)}><span>{t('settings.glassOpacity')}</span><span {...stylex.props(styles.opacityControl)}>
+            <input {...stylex.props(controls.focus, styles.opacityRange)} type="range" min="20" max="100" step="1" value={settings.glassOpacity} disabled={!settings.glassEnabled} aria-valuetext={`${settings.glassOpacity}%`} onChange={(event) => patch({ glassOpacity: Number(event.currentTarget.value) })} />
+            <output aria-hidden="true" {...stylex.props(styles.opacityValue)}>{settings.glassOpacity}%</output>
+          </span></label>
         </section>}
         {category === 'cloud' && <S3Settings state={state} run={run} t={t} />}
       </div>
@@ -168,26 +173,29 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
 
 const styles = stylex.create({
   window: { height: '100%', color: theme.text, backgroundColor: theme.canvas, fontSize: '.8125rem', lineHeight: '18px' },
+  glass: { backgroundColor: { default: 'transparent', '@media (prefers-reduced-transparency: reduce)': theme.sidebar, '@media (prefers-contrast: more)': theme.sidebar } },
+  glassSidebar: (color: string) => ({ backgroundColor: { default: color, '@media (prefers-reduced-transparency: reduce)': theme.sidebar, '@media (prefers-contrast: more)': theme.sidebar } }),
+  opacityControl: { display: 'flex', alignItems: 'center', gap: 8, width: 224 },
+  opacityRange: { appearance: 'auto', accentColor: theme.accent, height: 28, minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0, margin: 0 },
+  opacityValue: { width: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: '.8125rem', color: theme.secondary },
+  pathGroup: { display: 'flex', flexDirection: 'column', gap: 8 },
   body: { display: 'flex', height: '100%', minHeight: 0 },
-  sidebar: { flexShrink: 0, width: 156, paddingBlock: 16, paddingInline: 8, backgroundColor: theme.sidebar, borderRightWidth: 1, borderRightStyle: 'solid', borderRightColor: theme.separator, overflowY: 'auto' },
-  navigation: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 32, paddingBlock: 7, paddingInline: 8, textAlign: 'left', fontSize: '.8125rem', fontWeight: 500, color: theme.text, borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', borderRadius: 6, backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed } },
+  sidebar: { display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, width: 156, paddingBlock: 16, paddingInline: 8, backgroundColor: theme.sidebar, borderRightWidth: 1, borderRightStyle: 'solid', borderRightColor: theme.separator, overflowY: 'auto' },
+  navigation: { display: 'flex', flexShrink: 0, alignItems: 'center', gap: 8, width: '100%', minHeight: 32, paddingBlock: 7, paddingInline: 8, textAlign: 'left', fontSize: '.8125rem', fontWeight: 500, color: theme.text, borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', borderRadius: 6, backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed } },
   navigationSelected: { backgroundColor: theme.accentTint, color: theme.accent },
   panel: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflowY: 'auto', padding: 24, backgroundColor: theme.canvas },
-  categoryTitle: { fontSize: '1.0625rem', fontWeight: 600, letterSpacing: '-.015em', lineHeight: '22px', margin: 0 },
   fieldset: { borderWidth: 0, borderStyle: 'solid', borderColor: 'transparent', margin: 0, minWidth: 0 },
   resize: { display: 'flex', flexDirection: 'column', gap: 12, padding: 0 },
-  dimensions: { display: 'flex', flexDirection: 'column', gap: 12 }, dimension: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: theme.text, lineHeight: '18px' }, number: { width: 104, justifySelf: 'end', fontVariantNumeric: 'tabular-nums' },
-  toggle: { appearance: 'none', position: 'relative', flexShrink: 0, width: 32, height: 18, borderRadius: 18, backgroundColor: theme.border, cursor: 'pointer', margin: 0, justifySelf: 'end', '::after': { content: '""', position: 'absolute', top: 2, left: 2, height: 14, width: 14, borderRadius: '50%', backgroundColor: '#ffffff', transform: 'translateX(0)' } },
+  dimensions: { display: 'flex', flexDirection: 'column', gap: 12 }, dimension: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: { default: theme.text, ':has(:disabled)': theme.disabledText }, lineHeight: '18px' }, number: { width: 104, justifySelf: 'end', fontVariantNumeric: 'tabular-nums' },
+  toggle: { appearance: 'none', position: 'relative', flexShrink: 0, width: 32, height: 18, borderRadius: 18, backgroundColor: theme.border, cursor: 'default', margin: 0, justifySelf: 'end', '::after': { content: '""', position: 'absolute', top: 2, left: 2, height: 14, width: 14, borderRadius: '50%', backgroundColor: '#ffffff', transform: 'translateX(0)' } },
   checked: { backgroundColor: theme.accent, '::after': { transform: 'translateX(14px)' } },
   qualityGroup: { paddingBlock: 0 }, qualityHeading: { fontSize: '.8125rem', fontWeight: 600, marginBottom: 16, padding: 0 },
-  qualityTabs: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 2, padding: 2, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 6, backgroundColor: theme.canvas },
-  qualityTab: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingBlock: 4, paddingInline: 8, borderRadius: 5, color: theme.secondary, fontSize: '.75rem', fontWeight: 500, lineHeight: 1.35, textAlign: 'center', cursor: 'pointer', backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed }, outlineStyle: { default: 'none', ':focus-within': 'solid' }, outlineWidth: 2, outlineColor: theme.accent, outlineOffset: 1 },
+  qualityTabs: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 2, padding: 2, borderWidth: 1, borderStyle: 'solid', borderColor: theme.separator, borderRadius: 6, backgroundColor: theme.segmentTrack },
+  qualityTab: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingBlock: 4, paddingInline: 8, borderRadius: 5, color: theme.secondary, fontSize: '.75rem', fontWeight: 500, lineHeight: 1.35, textAlign: 'center', cursor: 'default', backgroundColor: { default: 'transparent', ':hover': theme.controlHover, ':active': theme.controlPressed }, outlineStyle: { default: 'none', ':focus-within': 'solid' }, outlineWidth: 3, outlineColor: theme.focus, outlineOffset: 1 },
   resizeModes: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))', minHeight: 32 }, qualitySelected: { color: theme.selectionText, backgroundColor: theme.selection, boxShadow: '0 1px 3px rgba(0,0,0,.12)' },
   disabledSegment: { color: theme.secondary, cursor: 'default', boxShadow: 'none', backgroundColor: { default: theme.canvas, ':hover': theme.canvas, ':active': theme.canvas } },
   disabledSelected: { backgroundColor: { default: theme.controlPressed, ':hover': theme.controlPressed, ':active': theme.controlPressed } },
-  qualityInput: { position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', margin: 0, cursor: 'pointer' },
+  qualityInput: { position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', margin: 0, cursor: 'default' },
   note: { fontSize: '.75rem', color: theme.secondary, lineHeight: 1.5, margin: 0 }, credentialStatus: { fontSize: '.75rem', color: theme.secondary, marginTop: 4, marginBottom: 0 },
-  credentialField: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: theme.text }, credentialInput: { width: 224, maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },
-  failure: { fontSize: '.75rem', color: theme.danger, lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' },
-  inlineNotice: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', padding: 9, marginTop: 14, borderRadius: 6, color: theme.danger, backgroundColor: theme.dangerBackground, fontSize: '.75rem', lineHeight: 1.5 },
+  credentialField: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 224px', alignItems: 'center', gap: 16, fontSize: '.8125rem', color: { default: theme.text, ':has(:disabled)': theme.disabledText } }, credentialInput: { width: 224, maxWidth: '100%' }, saveS3: { alignSelf: 'flex-end' },
 });

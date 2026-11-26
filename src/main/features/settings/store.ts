@@ -3,7 +3,7 @@ import path from 'node:path';
 import { DEFAULTS } from '../compression/options';
 import type { Settings, SettingsPatch } from '../../../shared/contracts';
 
-export const DEFAULT_SETTINGS: Settings = { ...DEFAULTS, notificationsEnabled: true, glassEnabled: false, cornerEnabled: true, dropCorner: 'topRight', cornerMode: 'always', language: 'vi', watchPath: null, watchEnabled: false, s3Enabled: false, s3Region: 'ap-northeast-1', s3Bucket: '', s3Prefix: '' };
+export const DEFAULT_SETTINGS: Settings = { ...DEFAULTS, notificationsEnabled: true, glassEnabled: false, backgroundStyle: 'gradient', glassOpacity: 70, cornerEnabled: true, dropCorner: 'topRight', cornerMode: 'always', language: 'vi', watchPath: null, watchEnabled: false, s3Enabled: false, s3Region: 'ap-northeast-1', s3Bucket: '', s3Prefix: '' };
 
 export function validatePatch(input: unknown): SettingsPatch {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('error.invalidSettings');
@@ -13,7 +13,7 @@ export function validatePatch(input: unknown): SettingsPatch {
     if (typeof patch[key] !== 'boolean') throw new Error('error.invalidSettings');
     result[key] = patch[key];
   }
-  for (const [key, min, max] of [['quality', 1, 100], ['width', 1, 32768], ['height', 1, 32768], ['resizePercent', 1, 100]] as const) if (key in patch) {
+  for (const [key, min, max] of [['quality', 1, 100], ['width', 1, 32768], ['height', 1, 32768], ['resizePercent', 1, 100], ['glassOpacity', 20, 100]] as const) if (key in patch) {
     const value = patch[key];
     if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) throw new Error('error.invalidSettings');
     result[key] = value;
@@ -21,6 +21,7 @@ export function validatePatch(input: unknown): SettingsPatch {
   for (const [key, values] of [
     ['format', ['original', 'png', 'jpeg', 'webp', 'avif']], ['resizeMethod', ['fit', 'cover', 'scale', 'thumb']], ['resizeMode', ['dimensions', 'percent']],
     ['dropCorner', ['topRight', 'topLeft', 'bottomRight', 'bottomLeft', 'topCenter']], ['cornerMode', ['always', 'nearby']], ['language', ['en', 'vi', 'ja']],
+    ['backgroundStyle', ['gradient', 'solid']],
   ] as const) if (key in patch) {
     if (!(values as readonly unknown[]).includes(patch[key])) throw new Error('error.invalidSettings');
     result[key] = patch[key];

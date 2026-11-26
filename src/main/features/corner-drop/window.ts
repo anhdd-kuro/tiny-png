@@ -6,7 +6,7 @@ import { applyWindowMaterial } from '../appearance/material';
 
 export class CornerWindow {
   readonly window: BrowserWindow;
-  private settings: Pick<Settings, 'cornerEnabled' | 'dropCorner' | 'cornerMode' | 'glassEnabled'> = { cornerEnabled: true, dropCorner: 'topRight', cornerMode: 'always', glassEnabled: false };
+  private settings: Pick<Settings, 'cornerEnabled' | 'dropCorner' | 'cornerMode'> = { cornerEnabled: true, dropCorner: 'topRight', cornerMode: 'always' };
   private dragging = false;
   private ready = false;
   private monitor: ReturnType<typeof createDragMonitor> | null = null;
@@ -16,10 +16,10 @@ export class CornerWindow {
     this.window = new BrowserWindow({
       width: 112, height: 104, frame: false, transparent: true, resizable: false,
       focusable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: true,
-      backgroundColor: '#00000000', vibrancy: 'under-window', visualEffectState: 'active', roundedCorners: true,
+      backgroundColor: '#00000000', roundedCorners: true,
       acceptFirstMouse: true, show: false, webPreferences: webPreferences(deps.preload),
     });
-    applyWindowMaterial(this.window, this.settings.glassEnabled, { transparentHost: true });
+    applyWindowMaterial(this.window, false, { transparentHost: true });
     lockNavigation(this.window);
     this.window.setAlwaysOnTop(true, 'floating');
     this.window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -27,9 +27,7 @@ export class CornerWindow {
     void this.window.loadFile(deps.html).catch(deps.onError);
   }
   update(settings: Settings): void {
-    const glassChanged = settings.glassEnabled !== this.settings.glassEnabled;
     this.settings = settings;
-    if (glassChanged) applyWindowMaterial(this.window, settings.glassEnabled, { transparentHost: true });
     const automatic = settings.cornerEnabled && settings.cornerMode === 'nearby';
     if (automatic && !this.monitor) {
       this.monitorFailed = false;
@@ -47,8 +45,12 @@ export class CornerWindow {
   }
   refresh(): void {
     if (!this.ready || this.window.isDestroyed()) return;
-    const point = screen.getCursorScreenPoint();
     const automatic = this.settings.cornerMode === 'nearby' && !this.monitorFailed;
+    if (!this.settings.cornerEnabled || automatic && !this.dragging) {
+      if (this.window.isVisible()) this.window.hide();
+      return;
+    }
+    const point = screen.getCursorScreenPoint();
     const display = automatic ? screen.getDisplayNearestPoint(point) : screen.getDisplayMatching(this.deps.anchorWindow.getBounds());
     const area = display.workArea;
     const island = this.settings.dropCorner === 'topCenter';
@@ -58,9 +60,11 @@ export class CornerWindow {
     if (current[0] !== width || current[1] !== height) this.window.setSize(width, height);
     const right = this.settings.dropCorner.endsWith('Right');
     const top = this.settings.dropCorner.startsWith('top');
-    this.window.setPosition(Math.round(island ? area.x + (area.width - width) / 2 : right ? area.x + area.width - width - 20 : area.x + 20),
-      Math.round(island ? area.y + 8 : top ? area.y + 20 : area.y + area.height - height - 20));
-    const visible = this.settings.cornerEnabled && (!automatic || this.dragging && isNearCorner(point, area, this.settings.dropCorner));
+    const x = Math.round(island ? area.x + (area.width - width) / 2 : right ? area.x + area.width - width - 20 : area.x + 20);
+    const y = Math.round(island ? area.y + 8 : top ? area.y + 20 : area.y + area.height - height - 20);
+    const position = this.window.getPosition();
+    if (position[0] !== x || position[1] !== y) this.window.setPosition(x, y);
+    const visible = !automatic || isNearCorner(point, area, this.settings.dropCorner, 180, display.bounds);
     if (visible && !this.window.isVisible()) this.window.showInactive();
     else if (!visible && this.window.isVisible()) this.window.hide();
   }

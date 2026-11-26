@@ -1,7 +1,7 @@
 {
   "name": "tiny-assets-desktop",
   "productName": "tiny assets",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Offline image compression with a floating drop zone and screenshot folder watching",
   "main": "build/main/index.cjs",
   "private": true,
@@ -9,10 +9,11 @@
     "start": "pnpm build:source && electron .",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --flag unstable_native_nodejs_ts_config src/renderer",
-    "test": "node --import tsx --test src/main/features/*/*.test.ts src/cli/*.test.ts",
+    "test": "node --import tsx --test src/main/features/*/*.test.ts src/cli/*.test.ts src/shared/*.test.ts src/renderer/features/compression/formatting.test.ts",
     "build:source": "node --import tsx scripts/build.ts",
     "build": "pnpm typecheck && pnpm lint && node --import tsx scripts/build-app.ts",
     "test:native": "node --import tsx --test src/main/features/corner-drop/drag-monitor.native.integration.ts",
+    "qa:ui": "pnpm build:source && node --import tsx scripts/qa-ui.ts",
     "compress": "node --import tsx src/cli/index.ts",
     "install:app": "node --import tsx scripts/install-app.ts"
   },
@@ -38,6 +39,7 @@
     "electron": "45.5.0",
     "esbuild": "0.28.2",
     "eslint": "10.15.0",
+    "playwright": "1.65.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vite": "8.3.8"

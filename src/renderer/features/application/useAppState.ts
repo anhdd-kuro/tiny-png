@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AppState } from '../../../shared/contracts';
 import { translations } from '../../../shared/locales';
 import { APP_NAME } from '../../../shared/app';
-import { createTranslator } from '../localization/i18n';
+import { createTranslator } from '../../../shared/localization';
 
 export type ActionRunner = (action: () => unknown) => Promise<void>;
 
 export function useAppState() {
   const [state, setState] = useState<AppState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const t = useMemo(() => createTranslator(state?.translations ?? translations.vi), [state?.translations]);
+  const t = useMemo(() => createTranslator(state?.settings.language ?? 'vi', state?.translations), [state?.settings.language, state?.translations]);
   const clearError = useCallback(() => setError(null), []);
   const run: ActionRunner = useCallback(async (action) => {
     try { await action(); setError(null); }

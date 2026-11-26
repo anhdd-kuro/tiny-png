@@ -7,9 +7,8 @@ button, input, select, fieldset, dialog { border-width: 0; border-style: solid; 
 button { appearance: none; }
 fieldset { min-inline-size: 0; }
 dialog { margin: auto; }
-button { cursor: pointer; }
+button { cursor: default; }
 button:disabled, input:disabled, select:disabled { opacity: .45; cursor: default; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid Highlight; outline-offset: 3px; }
 [hidden] { display: none !important; }
 [data-window-drag] { -webkit-app-region: drag; }
 button, input, select { -webkit-app-region: no-drag; }

@@ -12,6 +12,7 @@ const api: TinyPNG = {
     return () => { ipcRenderer.removeListener(IPC.openSettings, listener); };
   },
   openSettings: category => ipcRenderer.invoke(IPC.openSettings, category),
+  setSettingsCategory: category => ipcRenderer.invoke(IPC.settingsCategory, category),
   chooseFiles: () => ipcRenderer.invoke(IPC.chooseFiles),
   enqueueFiles: files => ipcRenderer.invoke(IPC.enqueue, files.map(file => webUtils.getPathForFile(file)).filter(Boolean)),
   chooseWatchFolder: () => ipcRenderer.invoke(IPC.chooseWatch), startWatch: () => ipcRenderer.invoke(IPC.startWatch), stopWatch: () => ipcRenderer.invoke(IPC.stopWatch),

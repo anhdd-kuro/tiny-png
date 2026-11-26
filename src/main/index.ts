@@ -1,14 +1,17 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, dialog, screen, shell, session, safeStorage, Notification } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, dialog, screen, shell, session, safeStorage, Notification } from 'electron';
 import type { IpcMainInvokeEvent, MenuItemConstructorOptions } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SettingsStore } from './features/settings/store';
 import { SettingsWindow } from './features/settings/window';
+import { SettingsUpdater } from './features/settings/update';
 import { CompressionQueue } from './features/compression/queue';
 import { FolderWatchController } from './features/folder-watch/controller';
 import { createAppWindow } from './features/app-window/window';
+import { createTrayImage } from './features/app-window/tray-image';
 import { CornerWindow } from './features/corner-drop/window';
 import { translations } from '../shared/locales';
+import { createTranslator } from '../shared/localization';
 import { IPC } from '../shared/contracts';
 import type { AppState, CompressionResult, BatchSummary, SettingsCategory } from '../shared/contracts';
 import { CredentialStore } from './platform/credential-store';
@@ -27,6 +30,7 @@ let corner: CornerWindow;
 let tray: Tray;
 let settings: SettingsStore;
 let settingsWindow: SettingsWindow;
+let settingsUpdater: SettingsUpdater;
 let queue: CompressionQueue;
 let watch: FolderWatchController;
 let quitting = false;
@@ -35,10 +39,10 @@ let credentials: CredentialStore;
 let hasS3Credentials = false;
 let completion: CompletionNotifier;
 const nativeNotifications = new Set<Notification>();
+const translators = { en: createTranslator('en'), vi: createTranslator('vi'), ja: createTranslator('ja') };
 
 function text(key: string, values: Record<string, string | number> = {}): string {
-  const dictionary = translations[settings?.value.language ?? 'vi'];
-  return (dictionary[key] ?? key).replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`));
+  return translators[settings?.value.language ?? 'vi'](key, values);
 }
 function errorText(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -64,7 +68,10 @@ function openMain(): void { mainWindow.show(); mainWindow.focus(); }
 function openSettings(category?: SettingsCategory): void { settingsWindow.open(category); }
 function dialogParent(): BrowserWindow {
   const focused = BrowserWindow.getFocusedWindow();
-  return focused && [mainWindow, settingsWindow?.window].includes(focused) ? focused : mainWindow;
+  if (focused && !focused.isDestroyed() && focused.isVisible() && [mainWindow, settingsWindow?.window].includes(focused)) return focused;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  openMain();
+  return mainWindow;
 }
 
 async function chooseFiles(): Promise<void> {
@@ -79,22 +86,18 @@ async function chooseWatchFolder(): Promise<void> {
 }
 
 function createTray(): Tray {
-  const bitmap = Buffer.alloc(18 * 18 * 4);
-  for (let y = 2; y < 16; y++) for (let x = 2; x < 16; x++) {
-    const border = x < 4 || x > 13 || y < 4 || y > 13;
-    const mountain = y >= 8 && y <= 12 && (Math.abs(x - 7) === 12 - y || Math.abs(x - 12) === 11 - y);
-    const sun = x >= 11 && x <= 12 && y >= 5 && y <= 6;
-    if (border || mountain || sun) bitmap[(y * 18 + x) * 4 + 3] = 255;
-  }
-  const image = nativeImage.createFromBitmap(bitmap, { width: 18, height: 18 });
-  image.setTemplateImage(true);
-  return new Tray(image);
+  return new Tray(createTrayImage());
+}
+async function showHelp(): Promise<void> {
+  await dialog.showMessageBox(dialogParent(), { type: 'info', title: text('help.title'), message: text('help.message'), detail: text('help.detail'), buttons: [text('common.close')] });
 }
 function updateMenus(): void {
   const showSettings = (): void => openSettings();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: APP_NAME, submenu: [
+      { role: 'about' }, { type: 'separator' },
       { label: text('app.settings'), accelerator: 'CmdOrCtrl+,', click: showSettings }, { type: 'separator' },
+      { role: 'services' }, { type: 'separator' },
       { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' },
       { label: text('app.quit'), accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
     ] },
@@ -102,20 +105,22 @@ function updateMenus(): void {
       { label: text('app.addImages'), accelerator: 'CmdOrCtrl+O', click: () => perform(chooseFiles) },
       { label: text('app.watchFolder'), click: () => perform(chooseWatchFolder) }, { role: 'close' },
     ] }, { role: 'editMenu' }, { role: 'windowMenu' },
+    { role: 'help', label: text('app.help'), submenu: [{ label: text('help.title'), click: () => perform(showHelp) }] },
   ]));
   const items: MenuItemConstructorOptions[] = [
     { label: text('app.open'), click: openMain }, { label: text('app.addImages'), click: () => perform(chooseFiles) },
     { label: text('app.watchFolder'), click: () => perform(chooseWatchFolder) },
-    { label: text('app.stopWatch'), click: () => perform(() => watch.stop()) }, { type: 'separator' },
+    { label: text('app.stopWatch'), enabled: watch.running, click: () => perform(() => watch.stop()) }, { type: 'separator' },
     { label: text('app.settings'), click: showSettings }, { label: text('app.quit'), click: () => app.quit() },
   ];
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
 function registerIPC(): void {
-  const handle = (channel: string, operation: (...args: unknown[]) => unknown): void => {
+  const handle = (channel: string, operation: (...args: unknown[]) => unknown, settingsOnly = false): void => {
     ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
       if (![mainWindow.webContents, corner.window.webContents, settingsWindow.window?.webContents].includes(event.sender)) throw new Error(text('error.invalidSettings'));
+      if (settingsOnly && (event.sender !== settingsWindow.window?.webContents || event.senderFrame !== event.sender.mainFrame)) throw new Error(text('error.invalidSettings'));
       try { return await operation(...args); }
       catch (error) { notice(error); throw new Error(errorText(error)); }
     });
@@ -128,6 +133,10 @@ function registerIPC(): void {
     if (category !== undefined && category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud') throw new Error('error.invalidSettings');
     openSettings(category);
   });
+  handle(IPC.settingsCategory, category => {
+    if (category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud') throw new Error('error.invalidSettings');
+    settingsWindow.setCategory(category);
+  }, true);
   handle(IPC.chooseFiles, chooseFiles);
   handle(IPC.enqueue, input => {
     if (!Array.isArray(input) || input.length > 5000 || !input.every((file: unknown) => typeof file === 'string' && path.isAbsolute(file))) throw new Error('error.invalidPath');
@@ -140,9 +149,9 @@ function registerIPC(): void {
     const result = await dialog.showOpenDialog(dialogParent(), { title: text('dialog.outputFolder'), properties: ['openDirectory', 'createDirectory'] });
     if (!result.canceled && result.filePaths[0]) { settings.setOutput(result.filePaths[0]); broadcast(); }
   });
-  handle(IPC.updateSettings, patch => {
+  handle(IPC.updateSettings, async patch => {
     const previousGlass = settings.value.glassEnabled;
-    settings.update(patch);
+    if (!await settingsUpdater.update(patch)) return snapshot();
     if (!settings.value.notificationsEnabled) completion.cancelPending();
     if (previousGlass !== settings.value.glassEnabled) applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     settingsWindow.updateAppearance();
@@ -190,15 +199,20 @@ else {
     const s3 = new S3Service({ getOptions: () => ({ enabled: settings.value.s3Enabled, region: settings.value.s3Region, bucket: settings.value.s3Bucket, prefix: settings.value.s3Prefix }),
       getCredentials: () => credentials.read() });
     queue = new CompressionQueue(settings, s3);
-    watch = new FolderWatchController({ settings, queue, onChange: broadcast, onError: notice });
+    watch = new FolderWatchController({ settings, queue, onChange: () => { updateMenus(); broadcast(); }, onError: notice });
     const build = path.resolve(__dirname, '..');
     const preload = path.join(build, 'preload/index.cjs');
     mainWindow = createAppWindow({ preload, html: path.join(build, 'renderer/index.html'), isQuitting: () => quitting });
     applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     corner = new CornerWindow({ preload, html: path.join(build, 'renderer/features/corner-drop/index.html'), anchorWindow: mainWindow, onError: notice });
     settingsWindow = new SettingsWindow({ preload, html: path.join(build, 'renderer/features/settings/index.html'),
-      title: () => `${text('settings.heading')} — ${APP_NAME}`, glassEnabled: () => settings.value.glassEnabled,
+      title: category => `${text(category === 'cloud' ? 's3.heading' : `settings.${category}`)} — ${APP_NAME}`, glassEnabled: () => settings.value.glassEnabled,
       isQuitting: () => quitting, onError: notice });
+    settingsUpdater = new SettingsUpdater(settings, async () => {
+      const result = await dialog.showMessageBox(dialogParent(), { type: 'warning', title: text('settings.overwriteAction'),
+        message: text('settings.overwriteConfirm'), buttons: [text('settings.overwriteAction'), text('common.cancel')], defaultId: 1, cancelId: 1 });
+      return result.response === 0;
+    });
     tray = createTray();
     completion = new CompletionNotifier({ isEnabled: () => settings.value.notificationsEnabled, translate: text, openResults: openMain,
       show: content => {

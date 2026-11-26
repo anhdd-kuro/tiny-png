@@ -33,6 +33,8 @@ export interface S3Options { enabled: boolean; region: string; bucket: string; p
 export interface Settings extends CompressionOptions {
   notificationsEnabled: boolean;
   glassEnabled: boolean;
+  backgroundStyle: 'gradient' | 'solid';
+  glassOpacity: number;
   language: Language;
   cornerEnabled: boolean;
   dropCorner: DropCorner;
@@ -71,6 +73,7 @@ export interface TinyPNG {
   onState(callback: (state: AppState) => void): () => void;
   onOpenSettings(callback: (category?: SettingsCategory) => void): () => void;
   openSettings(category?: SettingsCategory): Promise<void>;
+  setSettingsCategory(category: SettingsCategory): Promise<void>;
   chooseFiles(): Promise<void>;
   enqueueFiles(files: File[]): Promise<void>;
   chooseWatchFolder(): Promise<void>;
@@ -95,4 +98,5 @@ export const IPC = {
   reveal: 'reveal', openMain: 'open-main', dismissNotice: 'dismiss-notice',
   saveS3Credentials: 'save-s3-credentials',
   settingsReady: 'settings-ready',
+  settingsCategory: 'settings-category',
 } as const;

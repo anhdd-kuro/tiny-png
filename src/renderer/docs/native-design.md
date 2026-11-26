@@ -1,6 +1,6 @@
 # Quyết định thiết kế macOS — tiny assets 0.1.1
 
-Người dùng chọn **giữ gradient xanh toàn cửa sổ chính**, cải thiện control và spacing theo macOS. Glass chỉ áp dụng cho chrome chức năng; bật Glass không chuyển nền chính thành giao diện trung tính. Đầu khủng long là dấu hiệu nhận diện, không phải một hero section chiếm diện tích queue. Settings có thể dùng light/dark riêng theo hệ thống.
+Gradient xanh là nền mặc định của cửa sổ chính; người dùng đã bổ sung lựa chọn nền màu đơn và thanh kéo opacity cho Glass. Opacity chỉ thay đổi nền, giữ chữ/control rõ và bảo toàn nền đặc khi accessibility preference yêu cầu. Đầu khủng long là dấu hiệu nhận diện, không phải một hero section chiếm diện tích queue. Settings dùng light/dark riêng theo hệ thống.
 
 ## Pattern dùng làm cơ sở
 
@@ -17,7 +17,7 @@ Các pattern trên là nghiên cứu workflow từ nguồn chính thức, **khô
 ## Tiêu chí cho bản polish
 
 - Một nhịp spacing 8 px, margin ngoài thống nhất; toolbar khoảng 52 px, control thường khoảng 28 px, body 13 px, queue row khoảng 44 px. Đây là mục tiêu thiết kế của project, không phải mọi con số đều là yêu cầu bắt buộc của Apple.
-- Empty state có vùng thả rõ; khi queue có nội dung, thu gọn vùng thả để dành chỗ cho file. Giữ vị trí cột dung lượng/kết quả ổn định và cho tên file dài truncate có tooltip.
+- Empty state có vùng thả rõ; khi có ảnh, queue thay vùng thả. Vùng nội dung vẫn nhận thêm ảnh kéo thả, nút + trên toolbar và `⌘O` mở file picker. Giữ vị trí cột dung lượng/kết quả ổn định và cho tên file dài truncate có tooltip.
 - Settings là cửa sổ hệ thống riêng, có close/drag thật, nhớ pane cuối; giữ `⌘,`, `⌘W`, Escape và thứ tự focus có nghĩa. Label/control thẳng cột; popup của select theo nền tảng.
 - Quality giữ ba nhãn đã thống nhất và cho phép nhãn Việt/Nhật xuống dòng. Không làm mờ lồng nhau khi fieldset và control cùng disabled. Giữ focus ring, Reduce Motion, Reduce Transparency và Increase Contrast.
 - Một họ icon, một thang radius, một accent cho action. Gradient là ngoại lệ thương hiệu được người dùng yêu cầu; không thêm gradient CTA, glow, card Glass hàng loạt, search hoặc onboarding khi chưa có nhu cầu.

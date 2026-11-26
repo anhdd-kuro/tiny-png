@@ -39,7 +39,12 @@ export async function compressFile(file: string, supplied: Partial<CompressionOp
   const input = await fs.readFile(file);
   const inputFingerprint = digest(input);
   const engineOptions: SharpOptions = { failOn: 'error', limitInputPixels: 256_000_000, sequentialRead: true };
-  const metadata = await sharp(input, engineOptions).metadata();
+  const metadata = await sharp(input, engineOptions).metadata().catch((error: unknown) => {
+    if (error instanceof Error && error.message === 'Input buffer contains unsupported image format') {
+      throw new Error('error.inputFormat', { cause: error });
+    }
+    throw error;
+  });
   const inputFormat = metadata.format === 'heif' && metadata.compression === 'av1' ? 'avif' : metadata.format;
   if (inputFormat !== 'png' && inputFormat !== 'jpeg' && inputFormat !== 'webp' && inputFormat !== 'avif') throw new Error('error.inputFormat');
   if ((metadata.pages || 1) > 1) throw new Error('error.animated');

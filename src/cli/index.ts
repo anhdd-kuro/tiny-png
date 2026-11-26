@@ -3,6 +3,7 @@ import path from 'node:path';
 import { SettingsStore } from '../main/features/settings/store.ts';
 import { collectFiles } from '../main/features/compression/files.ts';
 import { translations } from '../shared/locales.ts';
+import { createTranslator } from '../shared/localization.ts';
 import { DATA_DIRECTORY } from '../shared/app.ts';
 import type { Language, S3Credentials } from '../shared/contracts.ts';
 import { CLIArgumentError, detectLanguage, parseArguments, type ParsedArguments } from './arguments.ts';
@@ -33,9 +34,10 @@ const messages: Record<Language, Record<string, string>> = {
 
 function describe(error: unknown, language: Language): string {
   const key = error instanceof Error ? error.message : String(error);
-  const localized = messages[language][key] ?? translations[language][key];
-  if (localized) return localized.replace('{value}', error instanceof CLIArgumentError ? error.argument ?? '' : '');
-  return `${translations[language]['error.operationFailed']} ${key}`;
+  const dictionary = { ...translations[language], ...messages[language] };
+  const translate = createTranslator(language, dictionary);
+  if (dictionary[key]) return translate(key, { value: error instanceof CLIArgumentError ? error.argument ?? '' : '' });
+  return `${translate('error.operationFailed')} ${key}`;
 }
 
 function environmentCredentials(): S3Credentials | null {
