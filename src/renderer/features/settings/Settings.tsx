@@ -6,6 +6,7 @@ import type { ActionRunner } from '../application/useAppState';
 import type { Translator } from '../../../shared/localization';
 import { WatchControls } from '../folder-watch/WatchControls';
 import { History } from '../history/History';
+import { Diagnostics } from '../notifications/Diagnostics';
 import { controls } from '../../lib/controls.stylex';
 import { theme } from '../../lib/theme.stylex';
 import { Icon } from '../../lib/Icon';
@@ -151,6 +152,7 @@ export function Settings({ state, category, setCategory, run, t }: Props) {
               <button type="button" {...stylex.props(controls.focus, controls.button)} onClick={() => void run(() => window.tinyPNG.openNotificationSettings())}>{t('notifications.openSettings')}</button>
               <button type="button" {...stylex.props(controls.focus, controls.button)} disabled={!settings.notificationsEnabled || testingNotification} aria-busy={testingNotification} onClick={testNotification}>{t(testingNotification ? 'notifications.testing' : 'notifications.test')}</button>
             </div>
+            <Diagnostics language={settings.language} run={run} t={t} />
           </section>
           <WatchControls state={state} run={run} t={t} />
           <section {...stylex.props(controls.section)}><h4 {...stylex.props(controls.heading)}>{t('corner.heading')}</h4>

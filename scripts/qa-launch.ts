@@ -3,7 +3,6 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { app, nativeTheme } from 'electron';
 import { DEFAULT_SETTINGS } from '../src/main/features/settings/store';
-import { APP_NAME } from '../src/shared/app';
 
 const root = process.cwd();
 const qaRoot = path.join(root, 'tmp/ui-qa');
@@ -29,6 +28,7 @@ nativeTheme.themeSource = theme;
 const applicationRoot = process.env.TINY_ASSETS_QA_PACKAGED === '1' ? app.getAppPath() : root;
 const require = createRequire(path.join(applicationRoot, 'package.json'));
 require(path.join(applicationRoot, 'build/main/index.cjs'));
+app.setName('Tiny Assets QA');
 fs.writeFileSync(path.join(qaRoot, 'qa-runtime.json'), JSON.stringify({
-  pid: process.pid, theme, profile, source: process.env.TINY_ASSETS_QA_PACKAGED === '1' ? 'packaged app' : 'local build', applicationRoot, appName: APP_NAME,
+  pid: process.pid, theme, profile, source: process.env.TINY_ASSETS_QA_PACKAGED === '1' ? 'packaged app' : 'local build', applicationRoot, appName: app.getName(),
 }, null, 2));

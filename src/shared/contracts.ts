@@ -1,8 +1,10 @@
+import type { NotificationDiagnostics } from './notifications';
 export type Language = 'en' | 'vi' | 'ja';
 export type DropCorner = 'topRight' | 'topLeft' | 'bottomRight' | 'bottomLeft' | 'topCenter';
 export type ResizeMethod = 'fit' | 'cover' | 'scale' | 'thumb';
 export type OutputFormat = 'original' | 'png' | 'jpeg' | 'webp' | 'avif';
 export type SettingsCategory = 'images' | 'automation' | 'general' | 'cloud' | 'history';
+export interface CornerPresentationState { visible: boolean; animated: boolean }
 export type HistoryAction = 'detected' | 'watchDetected' | 'compressed' | 'skipped' | 'failed' | 'uploaded' | 'uploadFailed' | 'watchStarted' | 'watchStopped' | 'watchFailed' | 'notificationRequested' | 'notificationSent' | 'notificationFailed' | 'notificationSuppressed' | 'notificationUnconfirmed';
 export interface HistoryEntry {
   id: string;
@@ -81,6 +83,7 @@ export interface AppState {
 }
 export type SettingsPatch = Partial<Omit<Settings, 'watchPath' | 'watchEnabled' | 'outputDirectory'>> & { outputDirectory?: null };
 export interface TinyPNG {
+  onCornerPresentation(callback: (state: CornerPresentationState) => void): () => void;
   getState(): Promise<AppState>;
   onState(callback: (state: AppState) => void): () => void;
   onOpenSettings(callback: (category?: SettingsCategory) => void): () => void;
@@ -102,11 +105,16 @@ export interface TinyPNG {
   openMain(): Promise<void>;
   dismissNotice(): Promise<void>;
   saveS3Credentials(credentials: S3Credentials): Promise<AppState>;
+  getNotificationDiagnostics(): Promise<NotificationDiagnostics>;
+  onNotificationDiagnostics(callback: (diagnostics: NotificationDiagnostics) => void): () => void;
+  refreshNotificationDiagnostics(): Promise<NotificationDiagnostics>;
+  revealNotificationLogs(): Promise<void>;
   clearHistory(): Promise<void>;
   testNotification(): Promise<void>;
   openNotificationSettings(): Promise<void>;
 }
 export const IPC = {
+  cornerReady: 'corner-ready', cornerPresentation: 'corner-presentation',
   getState: 'get-state', state: 'state', openSettings: 'open-settings', chooseFiles: 'choose-files', enqueue: 'enqueue',
   chooseWatch: 'choose-watch', startWatch: 'start-watch', stopWatch: 'stop-watch', chooseOutput: 'choose-output',
   updateSettings: 'update-settings', pause: 'pause', resume: 'resume', retry: 'retry', remove: 'remove', clear: 'clear',
@@ -114,6 +122,10 @@ export const IPC = {
   saveS3Credentials: 'save-s3-credentials',
   settingsReady: 'settings-ready',
   settingsCategory: 'settings-category',
+  getNotificationDiagnostics: 'get-notification-diagnostics',
+  notificationDiagnostics: 'notification-diagnostics',
+  refreshNotificationDiagnostics: 'refresh-notification-diagnostics',
+  revealNotificationLogs: 'reveal-notification-logs',
   clearHistory: 'clear-history',
   testNotification: 'test-notification',
   openNotificationSettings: 'open-notification-settings',

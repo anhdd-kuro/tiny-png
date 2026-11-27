@@ -1,8 +1,14 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IPC } from '../shared/contracts';
-import type { AppState, TinyPNG, SettingsCategory } from '../shared/contracts';
+import type { AppState, TinyPNG, SettingsCategory, CornerPresentationState } from '../shared/contracts';
 
 const api: TinyPNG = {
+  onCornerPresentation: callback => {
+    const listener = (_event: Electron.IpcRendererEvent, state: CornerPresentationState): void => callback(state);
+    ipcRenderer.on(IPC.cornerPresentation, listener);
+    ipcRenderer.send(IPC.cornerReady);
+    return () => { ipcRenderer.removeListener(IPC.cornerPresentation, listener); };
+  },
   getState: () => ipcRenderer.invoke(IPC.getState),
   onState: callback => { const listener = (_event: Electron.IpcRendererEvent, state: AppState): void => callback(state); ipcRenderer.on(IPC.state, listener); return () => { ipcRenderer.removeListener(IPC.state, listener); }; },
   onOpenSettings: callback => {
@@ -20,6 +26,14 @@ const api: TinyPNG = {
   pause: () => ipcRenderer.invoke(IPC.pause), resume: () => ipcRenderer.invoke(IPC.resume), retry: id => ipcRenderer.invoke(IPC.retry, id),
   remove: id => ipcRenderer.invoke(IPC.remove, id), clearFinished: () => ipcRenderer.invoke(IPC.clear), reveal: file => ipcRenderer.invoke(IPC.reveal, file),
   openMain: () => ipcRenderer.invoke(IPC.openMain), dismissNotice: () => ipcRenderer.invoke(IPC.dismissNotice),
+  getNotificationDiagnostics: () => ipcRenderer.invoke(IPC.getNotificationDiagnostics),
+  onNotificationDiagnostics: callback => {
+    const listener = (_event: Electron.IpcRendererEvent, diagnostics: import('../shared/notifications').NotificationDiagnostics): void => callback(diagnostics);
+    ipcRenderer.on(IPC.notificationDiagnostics, listener);
+    return () => { ipcRenderer.removeListener(IPC.notificationDiagnostics, listener); };
+  },
+  refreshNotificationDiagnostics: () => ipcRenderer.invoke(IPC.refreshNotificationDiagnostics),
+  revealNotificationLogs: () => ipcRenderer.invoke(IPC.revealNotificationLogs),
   clearHistory: () => ipcRenderer.invoke(IPC.clearHistory),
   testNotification: () => ipcRenderer.invoke(IPC.testNotification),
   openNotificationSettings: () => ipcRenderer.invoke(IPC.openNotificationSettings),

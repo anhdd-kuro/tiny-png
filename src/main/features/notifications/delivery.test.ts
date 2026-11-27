@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { NotificationDelivery, type NotificationDeliveryAction } from './delivery.ts';
 import type { CompletionContent } from './completion.ts';
+import type { NotificationDiagnosticAction } from '../../../shared/notifications';
+import { NotificationCenterInspector } from './center-inspector.ts';
 
 class FakeNotification extends EventEmitter {
   shows = 0;
@@ -162,4 +164,62 @@ test('closing before any delivery callback records uncertainty and releases the 
   assert.deepEqual(errors, []);
   assert.equal(handles[0]!.eventNames().length, 0);
   delivery.dispose();
+});
+
+test('accepted requests are correlated with Notification Center without claiming banner visibility', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const events: Array<[NotificationDiagnosticAction, string, unknown?]> = [];
+  const handles: FakeNotification[] = [];
+  const ids: string[] = [];
+  const delivery = new NotificationDelivery({
+    create: (_content, id) => { ids.push(id); const handle = new FakeNotification(); handles.push(handle); return handle; },
+    record() {}, onError() {}, diagnose: (action, id, detail) => events.push([action, id, detail]),
+    isInNotificationCenter: async id => id === ids[0],
+  });
+  t.after(() => delivery.dispose());
+  const content = { title: 'Complete', body: '1 image', onClick() {} };
+  delivery.show(content); handles[0].emit('show');
+  delivery.show(content); handles[1].emit('show');
+  t.mock.timers.tick(1000);
+  await Promise.resolve(); await Promise.resolve();
+  assert(events.some(([action, id]) => action === 'inNotificationCenter' && id === ids[0]));
+  assert(events.some(([action, id]) => action === 'notInNotificationCenter' && id === ids[1]));
+  assert.notEqual(ids[0], ids[1]);
+  handles[0].emit('click');
+  assert(events.some(([action, id]) => action === 'clicked' && id === ids[0]));
+});
+
+test('native delivery details reach diagnostics while public errors stay localized and inspection is cancelled on close', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const handle = new FakeNotification();
+  const events: Array<[NotificationDiagnosticAction, unknown]> = [];
+  let inspections = 0;
+  const errors: string[] = [];
+  const delivery = new NotificationDelivery({ create: () => handle, record() {}, onError: error => errors.push(error.message),
+    diagnose: (action, _id, detail) => events.push([action, detail]), isInNotificationCenter: async () => { inspections++; return true; } });
+  delivery.show({ title: 'Complete', body: '1 image', onClick() {} });
+  handle.emit('failed', {}, 'UNErrorDomain Code=1: notifications disabled');
+  assert.deepEqual(errors, ['notifications.unavailable']);
+  assert(events.some(([action, detail]) => action === 'failed' && detail === 'UNErrorDomain Code=1: notifications disabled'));
+  delivery.show({ title: 'Complete', body: '1 image', onClick() {} });
+  handle.emit('show'); handle.emit('close');
+  t.mock.timers.tick(1000); await Promise.resolve();
+  assert.equal(inspections, 0);
+  delivery.dispose();
+});
+
+test('a stalled Notification Center query times out without allocating more native requests and recovers after a late reply', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  let resolve!: (ids: readonly string[]) => void;
+  const inspector = new NotificationCenterInspector(() => { calls++; return new Promise<readonly string[]>(yes => { resolve = yes; }); });
+  const first = inspector.isPresent('first'); const firstError = assert.rejects(first, /notifications.unconfirmed/);
+  await Promise.resolve();
+  t.mock.timers.tick(5000); await firstError;
+  await assert.rejects(inspector.isPresent('second'), /notifications.unconfirmed/);
+  assert.equal(calls, 1);
+  resolve(['first']);
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  const recovered = inspector.isPresent('third'); await Promise.resolve(); resolve(['third']);
+  assert.equal(await recovered, true); assert.equal(calls, 2);
 });

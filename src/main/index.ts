@@ -20,6 +20,11 @@ import type { S3Credentials } from '../shared/contracts';
 import { APP_NAME, APP_ID, DATA_DIRECTORY } from '../shared/app';
 import { HistoryStore } from './features/history/store';
 import { NotificationDelivery } from './features/notifications/delivery';
+import { NotificationJournal } from './features/notifications/journal';
+import { NotificationDiagnosticsService } from './features/notifications/diagnostics';
+import { readNotificationIdentity } from './features/notifications/identity';
+import { readNotificationSettings } from './features/notifications/native-settings';
+import { NotificationCenterInspector } from './features/notifications/center-inspector';
 import { CompletionNotifier } from './features/notifications/completion';
 import { applyWindowMaterial } from './features/appearance/material';
 
@@ -42,6 +47,8 @@ let hasS3Credentials = false;
 let completion: CompletionNotifier;
 let history: HistoryStore;
 let notificationDelivery: NotificationDelivery;
+let notificationJournal: NotificationJournal;
+let notificationDiagnostics: NotificationDiagnosticsService;
 const translators = { en: createTranslator('en'), vi: createTranslator('vi'), ja: createTranslator('ja') };
 
 function text(key: string, values: Record<string, string | number> = {}): string {
@@ -135,7 +142,16 @@ function registerIPC(): void {
   ipcMain.on(IPC.settingsReady, event => {
     if (event.sender === settingsWindow.window?.webContents) settingsWindow.rendererReady();
   });
+  ipcMain.on(IPC.cornerReady, event => {
+    if (event.senderFrame === event.sender.mainFrame) corner?.rendererReady(event.sender.id);
+  });
   handle(IPC.getState, snapshot);
+  handle(IPC.getNotificationDiagnostics, () => notificationJournal.snapshot(), true);
+  handle(IPC.refreshNotificationDiagnostics, () => notificationDiagnostics.refresh(), true);
+  handle(IPC.revealNotificationLogs, () => {
+    if (!fs.existsSync(notificationJournal.file)) throw new Error('error.notificationLogRead');
+    shell.showItemInFolder(notificationJournal.file);
+  }, true);
   handle(IPC.openSettings, category => {
     if (category !== undefined && category !== 'images' && category !== 'automation' && category !== 'general' && category !== 'cloud' && category !== 'history') throw new Error('error.invalidSettings');
     openSettings(category);
@@ -172,7 +188,7 @@ function registerIPC(): void {
     if (!settings.value.notificationsEnabled && completion.cancelPending()) history.add({ action: 'notificationSuppressed', file: null });
     if (previousGlass !== settings.value.glassEnabled) applyWindowMaterial(mainWindow, settings.value.glassEnabled);
     settingsWindow.updateAppearance();
-    corner.update(settings.value); updateMenus(); broadcast(); return snapshot();
+    updateMenus(); broadcast(); corner.update(settings.value); return snapshot();
   });
   handle(IPC.pause, () => queue.pause());
   handle(IPC.resume, () => queue.resume());
@@ -211,6 +227,15 @@ else {
   app.whenReady().then(async () => {
     settings = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
     history = new HistoryStore(path.join(app.getPath('userData'), 'history.json'), { onError: error => { currentNotice = error; } });
+    notificationJournal = new NotificationJournal(path.join(app.getPath('userData'), 'diagnostics/notifications.json'),
+      readNotificationIdentity(app.getPath('exe'), APP_ID, app.getVersion()), {
+        onError: error => { currentNotice = error; broadcast(); },
+        onChange: diagnostics => {
+          const window = settingsWindow?.window;
+          if (window && !window.isDestroyed()) window.webContents.send(IPC.notificationDiagnostics, diagnostics);
+        },
+      });
+    notificationDiagnostics = new NotificationDiagnosticsService(notificationJournal, readNotificationSettings);
     credentials = new CredentialStore(path.join(app.getPath('userData'), 's3-credentials.bin'), safeStorage);
     try { hasS3Credentials = credentials.hasCredentials(); }
     catch (error) { currentNotice = error; }
@@ -233,13 +258,19 @@ else {
       return result.response === 0;
     });
     tray = createTray();
+    const notificationCenter = new NotificationCenterInspector(async () => (await Notification.getHistory()).map(notification => notification.id));
     notificationDelivery = new NotificationDelivery({
-      create: content => {
+      create: (content, id) => {
         if (!Notification.isSupported()) throw new Error('notifications.unavailable');
-        return new Notification({ title: content.title, body: content.body, groupId: APP_ID });
+        return new Notification({ id, title: content.title, body: content.body, groupId: APP_ID });
       },
       record: (action, error) => { history.add({ action, file: null, ...(error ? { error } : {}) }); broadcast(); },
       onError: notice,
+      diagnose: (action, notificationId, detail) => {
+        notificationJournal.record(action, { notificationId, detail });
+        if (action === 'request' || action === 'accepted' || action === 'failed') void notificationDiagnostics.refresh();
+      },
+      isInNotificationCenter: id => notificationCenter.isPresent(id),
     });
     completion = new CompletionNotifier({ isEnabled: () => settings.value.notificationsEnabled, translate: text, openResults: openMain,
       show: content => notificationDelivery.show(content) });
@@ -261,6 +292,7 @@ else {
     });
     session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
     registerIPC(); updateMenus(); corner.update(settings.value);
+    void notificationDiagnostics.refresh();
     screen.on('display-metrics-changed', () => corner.refresh());
     screen.on('display-added', () => corner.refresh());
     screen.on('display-removed', () => corner.refresh());

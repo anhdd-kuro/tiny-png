@@ -1,7 +1,7 @@
 {
   "name": "tiny-assets-desktop",
   "productName": "Tiny Assets",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Offline image compression with a floating drop zone and screenshot folder watching",
   "main": "build/main/index.cjs",
   "private": true,
@@ -13,6 +13,7 @@
     "build:source": "node --import tsx scripts/build.ts",
     "build": "pnpm typecheck && pnpm lint && node --import tsx scripts/build-app.ts",
     "test:native": "node --import tsx --test src/main/features/corner-drop/drag-monitor.native.integration.ts",
+    "diagnose:notifications": "node --import tsx scripts/diagnose-notifications.ts",
     "qa:ui": "pnpm build:source && node --import tsx scripts/qa-ui.ts",
     "compress": "node --import tsx src/cli/index.ts",
     "install:app": "node --import tsx scripts/install-app.ts"

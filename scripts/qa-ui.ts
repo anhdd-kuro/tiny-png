@@ -17,6 +17,7 @@ await fs.mkdir(runtime, { recursive: true });
 const qaProfile = path.join(qaRoot, 'qa-app-data/Tiny PNG');
 await fs.mkdir(qaProfile, { recursive: true });
 await fs.rm(path.join(qaProfile, 'history.json'), { force: true });
+await fs.rm(path.join(qaProfile, 'diagnostics'), { recursive: true, force: true });
 await fs.writeFile(path.join(qaProfile, 'settings.json'), JSON.stringify({ ...DEFAULT_SETTINGS, notificationsEnabled: false, cornerEnabled: false, watchEnabled: false, watchPath: null, s3Enabled: false, overwrite: false }));
 const metadata = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')) as { version: string };
 const application = await prepareQAApplication(root, runtime, metadata.version);
@@ -119,6 +120,33 @@ try {
   const automation = (await main.evaluate(() => window.tinyPNG.getState())).translations['settings.automation'];
   await settings.getByRole('button', { name: automation, exact: true }).click();
   await capture(settings, 'settings-automation-vi-dark');
+  await settings.getByText(translations['notificationDiagnostics.heading'], { exact: true }).click();
+  const checkedAfter = Date.now();
+  await settings.getByRole('button', { name: translations['notificationDiagnostics.refresh'], exact: true }).click();
+  let nativeDiagnostics = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+  const checkDeadline = Date.now() + 15000;
+  while ((!nativeDiagnostics.checkedAt || Date.parse(nativeDiagnostics.checkedAt) < checkedAfter) && Date.now() < checkDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    nativeDiagnostics = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+  }
+  assert(nativeDiagnostics.settings);
+  assert(['notDetermined', 'denied', 'authorized', 'provisional', 'ephemeral', 'unknown'].includes(nativeDiagnostics.settings.authorization));
+  assert(nativeDiagnostics.checkedAt);
+  await capture(settings, 'settings-notification-diagnostics-vi-dark');
+  for (const language of ['en', 'ja'] as const) {
+    await main.evaluate(language => window.tinyPNG.updateSettings({ language }), language);
+    await capture(settings, `settings-notification-diagnostics-${language}-dark`);
+  }
+  await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'light'; });
+  await settings.emulateMedia({ colorScheme: 'light' });
+  await capture(settings, 'settings-notification-diagnostics-ja-light');
+  await main.evaluate(() => window.tinyPNG.updateSettings({ language: 'vi' }));
+  await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark'; });
+  await settings.emulateMedia({ colorScheme: 'dark' });
+  await settings.getByText(translations['notificationDiagnostics.heading'], { exact: true }).click();
+  await assert.rejects(main.evaluate(() => window.tinyPNG.getNotificationDiagnostics()));
+  await main.evaluate(() => window.tinyPNG.dismissNotice());
+
   const cloud = (await main.evaluate(() => window.tinyPNG.getState())).translations['s3.heading'];
   await settings.getByRole('button', { name: cloud, exact: true }).click();
   await capture(settings, 'settings-s3-vi-dark');
@@ -221,6 +249,8 @@ try {
   await app.evaluate(({ Notification }) => {
     const notificationClass = Notification as unknown as { prototype: { show(): void }; };
     (globalThis as unknown as { qaNotificationShow: unknown }).qaNotificationShow = notificationClass.prototype.show;
+    (globalThis as unknown as { qaNotificationHistory: unknown }).qaNotificationHistory = Notification.getHistory;
+    Notification.getHistory = async () => [];
     notificationClass.prototype.show = function (this: { emit(event: string): void }) { this.emit('show'); };
   });
   const sentBefore = (await main.evaluate(() => window.tinyPNG.getState())).history.filter(entry => entry.action === 'notificationSent').length;
@@ -229,12 +259,26 @@ try {
   await app.evaluate(({ Notification }) => {
     Notification.prototype.show = function () { this.emit('failed', {}, 'QA delivery failure'); };
   });
+  const diagnosticSent = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+  assert(diagnosticSent.events.some(event => event.action === 'accepted' && !!event.notificationId));
   const failedBefore = (await main.evaluate(() => window.tinyPNG.getState())).history.filter(entry => entry.action === 'notificationFailed').length;
   await settings.getByRole('button', { name: translations['notifications.test'], exact: true }).click();
   await waitForState(main, state => state.history.filter(entry => entry.action === 'notificationFailed').length > failedBefore);
+  const inspectionDeadline = Date.now() + 10000;
+  let mockInspected = false;
+  while (Date.now() < inspectionDeadline) {
+    const status = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+    mockInspected = status.events.some(event => event.action === 'notInNotificationCenter');
+    if (mockInspected) break;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert(mockInspected);
   await app.evaluate(({ Notification }) => {
     Notification.prototype.show = (globalThis as unknown as { qaNotificationShow: typeof Notification.prototype.show }).qaNotificationShow;
+    Notification.getHistory = (globalThis as unknown as { qaNotificationHistory: typeof Notification.getHistory }).qaNotificationHistory;
   });
+  const diagnosticFailure = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+  assert(diagnosticFailure.events.some(event => event.action === 'failed' && event.detail === 'QA delivery failure'));
   await main.evaluate(() => window.tinyPNG.dismissNotice());
   if (process.env.TINY_ASSETS_QA_NATIVE_NOTIFICATIONS === '1') {
     const before = (await main.evaluate(() => window.tinyPNG.getState())).history[0]?.id;
@@ -243,6 +287,16 @@ try {
       const cutoff = state.history.findIndex(entry => entry.id === before);
       return state.history.slice(0, cutoff < 0 ? undefined : cutoff).some(entry => ['notificationSent', 'notificationFailed', 'notificationUnconfirmed'].includes(entry.action));
     });
+    const deadline = Date.now() + 15000;
+    let inspected = false;
+    while (Date.now() < deadline) {
+      const status = await settings.evaluate(() => window.tinyPNG.getNotificationDiagnostics());
+      const latest = status.events.find(event => event.action === 'request');
+      inspected = !!latest && status.events.some(event => event.notificationId === latest.notificationId && ['inNotificationCenter', 'notInNotificationCenter', 'inspectionFailed'].includes(event.action));
+      if (inspected) { console.log('Native diagnostic lifecycle', JSON.stringify(status.events.filter(event => event.notificationId === latest?.notificationId))); break; }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert(inspected);
     console.log('Native notification lifecycle', JSON.stringify(native.history.slice(0, 2)));
     await main.evaluate(() => window.tinyPNG.dismissNotice());
   }
@@ -266,8 +320,49 @@ try {
   await corner.getByRole('button').waitFor();
   await capture(corner, 'corner-top-right-vi');
   await main.evaluate(() => window.tinyPNG.updateSettings({ dropCorner: 'topCenter' }));
-  await capture(corner, 'corner-top-center-vi');
   const cornerWindow = await app.browserWindow(corner);
+  await corner.locator('[data-corner-presentation="visible"]').waitFor();
+  await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
+  assert.deepEqual(await cornerWindow.evaluate(window => window.getSize()), [320, 104]);
+  await capture(corner, 'corner-top-center-vi');
+  await main.evaluate(() => window.tinyPNG.clearFinished());
+  await capture(corner, 'corner-top-center-idle-vi');
+  const animated = !await app.evaluate(({ systemPreferences }) => systemPreferences.getAnimationSettings().prefersReducedMotion) && await corner.evaluate(() => !matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (animated) {
+    await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
+    const firstHideDeadline = Date.now() + 3000;
+    while (await cornerWindow.evaluate(window => window.isVisible())) {
+      if (Date.now() > firstHideDeadline) throw new Error('Animated drop did not hide');
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    await corner.evaluate(() => {
+      const frames: Array<{ opacity: number; blur: number }> = [];
+      (window as unknown as { qaCornerFrames: typeof frames }).qaCornerFrames = frames;
+      void (async () => {
+        for (let index = 0; index < 45; index++) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          const style = getComputedStyle(document.querySelector('button')!);
+          frames.push({ opacity: Number(style.opacity), blur: Number.parseFloat(style.filter.replace('blur(', '')) || 0 });
+        }
+      })();
+    });
+    await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+    await corner.locator('[data-corner-presentation="visible"]').waitFor();
+    await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
+    const frames = await corner.evaluate(() => (window as unknown as { qaCornerFrames: Array<{ opacity: number; blur: number }> }).qaCornerFrames);
+    assert(frames.some(frame => frame.opacity > 0 && frame.opacity < .99), 'reveal must visibly fade through intermediate frames');
+    const supportsBlur = await corner.evaluate(() => !matchMedia('(prefers-reduced-transparency: reduce)').matches && !matchMedia('(prefers-contrast: more)').matches);
+    if (supportsBlur) assert(frames.some(frame => frame.blur > 0 && frame.opacity > 0), 'reveal must visibly blur before settling');
+    console.log('Corner reveal frames', JSON.stringify(frames));
+    await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
+    await corner.waitForFunction(() => document.querySelector('[data-corner-presentation]')?.getAttribute('data-corner-presentation') === 'hidden');
+    assert(await corner.evaluate(() => document.querySelector<HTMLElement>('[data-corner-presentation]')!.inert));
+    await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+    await corner.locator('[data-corner-presentation="visible"]').waitFor();
+    await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
+    assert(await cornerWindow.evaluate(window => window.isVisible()), 're-entry must cancel the stale hide');
+    await capture(corner, 'corner-top-center-reentered-vi');
+  }
   assert(!(await cornerWindow.evaluate(window => window.isFocusable())));
   const cornerDropped = path.join(fixtures, 'Corner dropped screenshot.png');
   await fs.copyFile(paths[0]!, cornerDropped);
@@ -278,7 +373,20 @@ try {
   await waitForState(main, state => state.jobs.some(job => job.source === cornerDropped && job.state === 'completed'));
   await cornerDrag.detach();
   await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
-  assert(!(await cornerWindow.evaluate(window => window.isVisible())));
+  const hideDeadline = Date.now() + 3000;
+  while (await cornerWindow.evaluate(window => window.isVisible())) {
+    if (Date.now() > hideDeadline) throw new Error('Nearby drop did not finish hiding');
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  await corner.emulateMedia({ reducedMotion: 'reduce' });
+  await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+  await corner.locator('[data-corner-presentation="visible"]').waitFor();
+  const reduced = await corner.getByRole('button').evaluate(button => {
+    const style = getComputedStyle(button); return { opacity: style.opacity, filter: style.filter, transform: style.transform, duration: style.transitionDuration };
+  });
+  assert.deepEqual(reduced, { opacity: '1', filter: 'none', transform: 'none', duration: '0s' });
+  await capture(corner, 'corner-top-center-reduced-motion-vi');
+  await corner.emulateMedia({ reducedMotion: 'no-preference' });
   await main.evaluate(() => window.tinyPNG.updateSettings({ cornerEnabled: false }));
   await main.emulateMedia({ contrast: 'more', reducedMotion: 'reduce' });
   await capture(main, 'main-increased-contrast-reduced-motion-vi');

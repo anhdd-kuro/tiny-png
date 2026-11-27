@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     extendInfo: { CFBundleDevelopmentRegion: 'en', CFBundleLocalizations: ['en', 'en-GB', 'ja', 'vi'] },
     icon,
     ignore: [
-      /^\/(?:\.git|\.github|\.build|\.codex|\.agents|\.aws|\.pnpm-store|dist|src|test|tests|research_notes|reports|scripts|tmp|temp)(?:\/|$)/,
+      /^\/(?:\.git|\.github|\.build|\.codex|\.agents|\.aws|\.pnpm-store|dist|src|test|tests|research_notes|reports|scripts|tmp|temp|output)(?:\/|$)/,
       /^\/(?:AGENTS\.md|README\.md|\.DS_Store|.*\.log|tsconfig\.json|(?:vite|eslint)\.config\.ts|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.node-version|\.nvmrc|\.npmrc)$/,
       /\.(?:test|spec)\.[cm]?[jt]sx?$/,
     ],
