@@ -83,7 +83,7 @@ const styles = stylex.create({
   original: { colorScheme: 'dark' },
   glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.2)', backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
   targeted: { borderColor: theme.accent, backgroundColor: theme.accentTint }, warning: { color: theme.danger },
-  island: (color: string) => ({ flexDirection: 'row', gap: 16, paddingBlock: 16, paddingInline: 20, borderRadius: 26, backgroundImage: 'none', color: '#ffffff', backgroundColor: { default: color, '@media (prefers-reduced-transparency: reduce)': '#111215', '@media (prefers-contrast: more)': '#000000', ':hover': 'rgba(28,29,33,.96)', ':active': '#292a2f' }, borderColor: { default: 'rgba(255,255,255,.2)', '@media (prefers-contrast: more)': '#ffffff' } }),
+  island: (color: string) => ({ flexDirection: 'row', gap: 16, paddingBlock: 10, paddingInline: 20, borderRadius: 26, backgroundImage: 'none', color: '#ffffff', backgroundColor: { default: color, '@media (prefers-reduced-transparency: reduce)': '#111215', '@media (prefers-contrast: more)': '#000000', ':hover': 'rgba(28,29,33,.96)', ':active': '#292a2f' }, borderColor: { default: 'rgba(255,255,255,.2)', '@media (prefers-contrast: more)': '#ffffff' } }),
   motion: {
     opacity: 0,
     filter: { default: 'blur(6px)', '@media (prefers-reduced-motion: reduce)': 'none', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' },
@@ -95,7 +95,7 @@ const styles = stylex.create({
   presented: { opacity: 1, filter: 'none', transform: 'none', transitionDuration: { default: '240ms', '@media (prefers-reduced-motion: reduce)': '0s' } },
   instant: { transitionProperty: 'none', transitionDuration: '0s' },
   islandTargeted: { borderColor: '#a9f0cb', backgroundColor: '#18342c' }, islandWarning: { color: '#ffd28a' },
-  islandIcon: { width: 56, height: 56 }, islandWarningIcon: { width: 40, height: 40, fontSize: 26 }, islandLabel: { flexGrow: 1, flexShrink: 1, flexBasis: 0, textAlign: 'center', fontSize: '.9375rem', lineHeight: '20px' },
+  islandIcon: { width: 44, height: 44 }, islandWarningIcon: { width: 40, height: 40, fontSize: 26 }, islandLabel: { flexGrow: 1, flexShrink: 1, flexBasis: 0, textAlign: 'center', fontSize: '.9375rem', lineHeight: '20px' },
   icon: { width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }, label: { fontSize: '.8125rem', fontWeight: 550, letterSpacing: '.005em', whiteSpace: 'nowrap', maxWidth: '100%', textOverflow: 'ellipsis', overflow: 'hidden' },
   warningIcon: { display: 'grid', placeItems: 'center', width: 28, height: 28, borderWidth: 1.5, borderStyle: 'solid', borderColor: 'currentColor', borderRadius: '50%', fontSize: 20, fontWeight: 600, lineHeight: 1 },
 });

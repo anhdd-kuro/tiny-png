@@ -78,7 +78,7 @@ export class CornerWindow {
     const area = display.workArea;
     const island = this.settings.dropCorner === 'topCenter';
     const width = island ? 320 : 112;
-    const height = 104;
+    const height = island ? 80 : 104;
     const current = this.window.getSize();
     if (current[0] !== width || current[1] !== height) this.window.setSize(width, height);
     const right = this.settings.dropCorner.endsWith('Right');

@@ -323,7 +323,7 @@ try {
   const cornerWindow = await app.browserWindow(corner);
   await corner.locator('[data-corner-presentation="visible"]').waitFor();
   await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
-  assert.deepEqual(await cornerWindow.evaluate(window => window.getSize()), [320, 104]);
+  assert.deepEqual(await cornerWindow.evaluate(window => window.getSize()), [320, 80]);
   await capture(corner, 'corner-top-center-vi');
   await main.evaluate(() => window.tinyPNG.clearFinished());
   await capture(corner, 'corner-top-center-idle-vi');
