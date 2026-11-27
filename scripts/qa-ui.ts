@@ -328,6 +328,28 @@ try {
   await main.evaluate(() => window.tinyPNG.clearFinished());
   await capture(corner, 'corner-top-center-idle-vi');
   const animated = !await app.evaluate(({ systemPreferences }) => systemPreferences.getAnimationSettings().prefersReducedMotion) && await corner.evaluate(() => !matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const recordCornerFrames = () => corner.evaluate(() => {
+    const frames: Array<{ opacity: number; blur: number }> = [];
+    (window as unknown as { qaCornerFrames: typeof frames }).qaCornerFrames = frames;
+    void (async () => {
+      for (let index = 0; index < 45; index++) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const style = getComputedStyle(document.querySelector('button')!);
+        frames.push({ opacity: Number(style.opacity), blur: Number.parseFloat(style.filter.replace('blur(', '')) || 0 });
+      }
+    })();
+  });
+  const settleCorner = async () => {
+    await corner.locator('[data-corner-presentation="visible"]').waitFor();
+    await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
+  };
+  const waitCornerHidden = async () => {
+    const deadline = Date.now() + 3000;
+    while (await cornerWindow.evaluate(window => window.isVisible())) {
+      if (Date.now() > deadline) throw new Error('Animated corner did not hide');
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+  };
   if (animated) {
     await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
     const firstHideDeadline = Date.now() + 3000;
@@ -335,17 +357,7 @@ try {
       if (Date.now() > firstHideDeadline) throw new Error('Animated drop did not hide');
       await new Promise(resolve => setTimeout(resolve, 25));
     }
-    await corner.evaluate(() => {
-      const frames: Array<{ opacity: number; blur: number }> = [];
-      (window as unknown as { qaCornerFrames: typeof frames }).qaCornerFrames = frames;
-      void (async () => {
-        for (let index = 0; index < 45; index++) {
-          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-          const style = getComputedStyle(document.querySelector('button')!);
-          frames.push({ opacity: Number(style.opacity), blur: Number.parseFloat(style.filter.replace('blur(', '')) || 0 });
-        }
-      })();
-    });
+    await recordCornerFrames();
     await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
     await corner.locator('[data-corner-presentation="visible"]').waitFor();
     await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
@@ -362,6 +374,35 @@ try {
     await corner.waitForFunction(() => Number(getComputedStyle(document.querySelector('button')!).opacity) >= .999);
     assert(await cornerWindow.evaluate(window => window.isVisible()), 're-entry must cancel the stale hide');
     await capture(corner, 'corner-top-center-reentered-vi');
+    const assertCornerFrames = async (phase: string) => {
+      const samples = await corner.evaluate(() => (window as unknown as { qaCornerFrames: Array<{ opacity: number; blur: number }> }).qaCornerFrames);
+      assert(samples.some(sample => sample.opacity > 0 && sample.opacity < .99), `${phase} must render intermediate opacity`);
+      if (supportsBlur) assert(samples.some(sample => sample.blur > 0 && sample.opacity > 0), `${phase} must render intermediate blur`);
+    };
+    for (const position of ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const) {
+      await main.evaluate(dropCorner => window.tinyPNG.updateSettings({ dropCorner, cornerMode: 'nearby' }), position);
+      await waitCornerHidden();
+      await recordCornerFrames();
+      await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+      await settleCorner();
+      assert.deepEqual(await cornerWindow.evaluate(window => window.getSize()), [112, 104]);
+      await assertCornerFrames(`${position} reveal`);
+      await recordCornerFrames();
+      await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
+      await waitCornerHidden();
+      await assertCornerFrames(`${position} hide`);
+      await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+      await settleCorner();
+      await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'nearby' }));
+      await corner.waitForFunction(() => document.querySelector('[data-corner-presentation]')?.getAttribute('data-corner-presentation') === 'hidden');
+      assert(await corner.evaluate(() => document.querySelector<HTMLElement>('[data-corner-presentation]')!.inert));
+      await main.evaluate(() => window.tinyPNG.updateSettings({ cornerMode: 'always' }));
+      await settleCorner();
+      assert(await cornerWindow.evaluate(window => window.isVisible()), `${position} re-entry must cancel the stale hide`);
+      await capture(corner, `corner-${position}-reentered-vi`);
+    }
+    await main.evaluate(() => window.tinyPNG.updateSettings({ dropCorner: 'topCenter' }));
+    await settleCorner();
   }
   assert(!(await cornerWindow.evaluate(window => window.isFocusable())));
   const cornerDropped = path.join(fixtures, 'Corner dropped screenshot.png');

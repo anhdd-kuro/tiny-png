@@ -66,7 +66,7 @@ Thông báo hoàn tất dùng native macOS Notification trong main process, khô
 
 Trong **Cài đặt → Tự động hóa**, dùng **Thử thông báo** để kiểm tra và mở cài đặt thông báo của macOS. App ghi riêng yêu cầu, phản hồi `show`/`failed` của Electron và trường hợp chưa có phản hồi sau 10 giây; trạng thái tiếp nhận không bảo đảm banner hiện khi Focus hoặc tùy chọn hệ thống đang chặn.
 
-Vùng thả ở giữa phía trên, gần notch, có kích thước 320 × 80 px và hiệu ứng blur/fade/scale nhẹ khi hiện hoặc ẩn. Reduce Motion tắt chuyển động; Reduce Transparency và Increase Contrast tắt blur. Vùng đang ẩn chuyển sang click-through ngay để không giữ thao tác kéo thả của app phía sau.
+Vùng thả ở giữa phía trên, gần notch, có kích thước 320 × 80 px và hiệu ứng blur/fade/scale nhẹ khi hiện hoặc ẩn. Hiệu ứng này cũng áp dụng cho cả bốn góc. Reduce Motion tắt chuyển động; Reduce Transparency và Increase Contrast tắt blur. Vùng đang ẩn chuyển sang click-through ngay để không giữ thao tác kéo thả của app phía sau.
 
 Đóng cửa sổ vẫn giữ app và watcher chạy ở menu bar; chọn **Thoát Tiny Assets** hoặc `⌘Q` để dừng. Không cài background service hoặc tự khởi động khi đăng nhập.
 

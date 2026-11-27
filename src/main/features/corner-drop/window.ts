@@ -64,7 +64,7 @@ export class CornerWindow {
   refresh(): void {
     if (!this.ready || !this.rendererListening || this.window.isDestroyed()) return;
     const automatic = this.settings.cornerMode === 'nearby' && !this.monitorFailed;
-    const animated = this.settings.dropCorner === 'topCenter' && !systemPreferences.getAnimationSettings().prefersReducedMotion;
+    const animated = !systemPreferences.getAnimationSettings().prefersReducedMotion;
     if (!this.settings.cornerEnabled) {
       this.presentation.setVisible(false, false);
       return;

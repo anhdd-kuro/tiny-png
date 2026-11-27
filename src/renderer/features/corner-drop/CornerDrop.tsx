@@ -67,7 +67,7 @@ export function CornerDrop() {
   const description = [failure, overwriteWarning].filter(Boolean).join(' ');
   useEffect(() => { document.title = `${APP_NAME} — ${t('corner.drop')}`; }, [t]);
 
-  return <div {...stylex.props(styles.window, originalTheme, !island && !presented && styles.hidden)} inert={!presented} aria-hidden={!presented} data-corner-presentation={presented ? 'visible' : 'hidden'}><button type="button" {...stylex.props(controls.focus, styles.target, styles.original, backgroundStyles.paint(hudImage, paint.color), glass && styles.glassChrome, island && styles.island(islandColor), island && styles.motion, island && presented && styles.presented, !animate && styles.instant, dragging && (island ? styles.islandTargeted : styles.targeted), warning && styles.warning, warning && island && styles.islandWarning)}
+  return <div {...stylex.props(styles.window, originalTheme)} inert={!presented} aria-hidden={!presented} data-corner-presentation={presented ? 'visible' : 'hidden'}><button type="button" {...stylex.props(controls.focus, styles.target, styles.original, backgroundStyles.paint(hudImage, paint.color), glass && styles.glassChrome, island && styles.island(islandColor), styles.motion, presented && styles.presented, !animate && styles.instant, dragging && (island ? styles.islandTargeted : styles.targeted), warning && styles.warning, warning && island && styles.islandWarning)}
     aria-label={[t('corner.accessible', { status }), overwriteWarning].filter(Boolean).join(' ')} aria-description={description || undefined} title={[failure ? `${failure} ${t('corner.attentionHelp')}` : warning ? t('corner.errorHelp', { count: failed }) : t('corner.help'), overwriteWarning].filter(Boolean).join(' ')}
     onPointerDown={() => { suppressDropClick.current = false; }}
     onClick={(event) => { if (!suppressDropClick.current || event.detail === 0) void run(() => window.tinyPNG.openMain()); }}>
@@ -78,7 +78,6 @@ export function CornerDrop() {
 
 const styles = stylex.create({
   window: { height: '100%', padding: 3, userSelect: 'none' },
-  hidden: { opacity: 0 },
   target: { height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, borderRadius: 17, paddingBlock: 9, paddingInline: 5, color: theme.text, backgroundColor: { default: theme.material, ':hover': theme.controlHover, ':active': theme.controlPressed }, backdropFilter: theme.blur },
   original: { colorScheme: 'dark' },
   glassChrome: { boxShadow: 'inset 0 1px rgba(255,255,255,.2)', backdropFilter: { default: 'blur(24px) saturate(160%)', '@media (prefers-reduced-transparency: reduce)': 'none', '@media (prefers-contrast: more)': 'none' } },
